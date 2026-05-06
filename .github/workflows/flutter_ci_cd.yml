@@ -1,0 +1,65 @@
+name: CleanCity CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build_and_upload:
+    name: Build & Upload Artifacts
+    runs-on: macos-latest # Utilisation de macOS pour pouvoir compiler l'application iOS
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17' # Requis pour les récentes versions de Gradle/Android
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze code
+        run: flutter analyze
+
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: cleancity-android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7
+
+      - name: Build iOS App
+        run: flutter build ios --release --no-codesign
+
+      - name: Upload iOS App
+        uses: actions/upload-artifact@v4
+        with:
+          name: cleancity-ios-app
+          path: build/ios/iphoneos
+          retention-days: 7
+
+      - name: Build Web App
+        run: flutter build web --release
+
+      - name: Upload Web App
+        uses: actions/upload-artifact@v4
+        with:
+          name: cleancity-web-app
+          path: build/web
+          retention-days: 7
