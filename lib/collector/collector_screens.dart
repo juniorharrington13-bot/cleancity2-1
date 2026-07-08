@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_map/flutter_map.dart' as fm;
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:cleancity/components/cleancity_map_view.dart';
 import 'package:cleancity/components/mobile_money_withdraw_sheet.dart';
 import 'package:cleancity/components/center_picker_sheet.dart';
 import 'package:cleancity/components/user_profile_tab.dart';
 import 'package:cleancity/chat/chat_screens.dart';
+import 'package:cleancity/components/app_error_handler.dart';
 import 'package:cleancity/components/app_snackbars.dart';
 import 'package:cleancity/services/chat_service.dart';
 import 'package:cleancity/models/app_user.dart';
@@ -55,7 +56,8 @@ class _CollectorDashboardState extends State<CollectorDashboard> {
         automaticallyImplyLeading: false,
         leading: IconButton(
           tooltip: 'Retour',
-          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface),
+          icon: Icon(Icons.arrow_back,
+              color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => _handleBack(context),
         ),
         title: Row(
@@ -65,12 +67,19 @@ class _CollectorDashboardState extends State<CollectorDashboard> {
             FutureBuilder(
               future: AppUserService().getCurrentProfile(),
               builder: (context, snap) {
-                final name = (snap.data?.fullName?.trim().isNotEmpty ?? false) ? snap.data!.fullName!.trim() : 'Collecteur';
+                final name = (snap.data?.fullName?.trim().isNotEmpty ?? false)
+                    ? snap.data!.fullName!.trim()
+                    : 'Collecteur';
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name, style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                    Text('CAMEROUN • COLLECTEUR', style: context.textStyles.labelSmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant, fontSize: 8)),
+                    Text(name,
+                        style: context.textStyles.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold)),
+                    Text('CAMEROUN • COLLECTEUR',
+                        style: context.textStyles.labelSmall?.copyWith(
+                            color: LightModeColors.lightOnSurfaceVariant,
+                            fontSize: 8)),
                   ],
                 );
               },
@@ -78,13 +87,15 @@ class _CollectorDashboardState extends State<CollectorDashboard> {
           ],
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.notifications_none), onPressed: () {}),
+          IconButton(
+              icon: const Icon(Icons.notifications_none), onPressed: () {}),
           const Padding(
             padding: EdgeInsets.only(right: 16.0),
             child: CircleAvatar(
               radius: 16,
               backgroundColor: LightModeColors.lightPrimaryContainer,
-              child: Icon(Icons.person, size: 16, color: LightModeColors.lightPrimary),
+              child: Icon(Icons.person,
+                  size: 16, color: LightModeColors.lightPrimary),
             ),
           )
         ],
@@ -94,12 +105,19 @@ class _CollectorDashboardState extends State<CollectorDashboard> {
         currentIndex: _index,
         onTap: (i) => setState(() => _index = i),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.cases_outlined), label: 'Missions'),
-          BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: 'Carte'),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Historique'),
-          BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_outlined), label: 'Portefeuille'),
-          BottomNavigationBarItem(icon: Icon(Icons.forum_outlined), label: 'Chat'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profil'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.cases_outlined), label: 'Missions'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.map_outlined), label: 'Carte'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.history), label: 'Historique'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.account_balance_wallet_outlined),
+              label: 'Portefeuille'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.forum_outlined), label: 'Chat'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline), label: 'Profil'),
         ],
       ),
     );
@@ -117,9 +135,10 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
   static const LatLng _douala = LatLng(4.0511, 9.7679);
 
   final _maps = MapsService();
-  final fm.MapController _mapCtrl = fm.MapController();
   final _searchCtrl = TextEditingController();
 
+  LatLng _center = _douala;
+  double _zoom = 12;
   LatLng? _myLocation;
   LatLng? _destination;
   String? _destinationLabel;
@@ -153,13 +172,16 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
       // Active = accepted/collected but not delivered.
       final rows = await client
           .from('pickups')
-          .select('id, request_id, accepted_at, collected_at, delivered_at, waste_requests(*, addresses(*))')
+          .select(
+              'id, request_id, accepted_at, collected_at, delivered_at, waste_requests(*, addresses(*))')
           .eq('collector_id', uid)
           .isFilter('delivered_at', null)
           .order('accepted_at', ascending: false)
           .limit(25);
 
-      return (rows as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      return (rows as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
     } catch (e) {
       debugPrint('Collector map active pickups load failed: $e');
       rethrow;
@@ -173,34 +195,42 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
       final enabled = await Geolocator.isLocationServiceEnabled();
       if (!enabled) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Activez la localisation (GPS) pour utiliser la carte.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content:
+                Text('Activez la localisation (GPS) pour utiliser la carte.')));
         return;
       }
 
       var perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) perm = await Geolocator.requestPermission();
-      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+      if (perm == LocationPermission.denied)
+        perm = await Geolocator.requestPermission();
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Autorisation localisation refusée.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Autorisation localisation refusée.')));
         return;
       }
 
-      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      final pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
       final here = LatLng(pos.latitude, pos.longitude);
       _myLocation = here;
-      _mapCtrl.move(here, 14);
+      _center = here;
+      _zoom = 14;
       if (mounted) setState(() {});
     } catch (e) {
       debugPrint('Collector map locate failed: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Localisation échouée: $e')));
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
     } finally {
       if (mounted) setState(() => _locating = false);
     }
   }
 
   Future<void> _updateSuggestions(String text) async {
-    final results = await _maps.autocomplete(input: text, locationBias: _myLocation);
+    final results =
+        await _maps.autocomplete(input: text, locationBias: _myLocation);
     if (!mounted) return;
     setState(() => _suggestions = results);
   }
@@ -219,19 +249,26 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
     final latLng = await _maps.geocodePlaceId(s.placeId);
     if (!mounted) return;
     if (latLng == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Adresse introuvable.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Adresse introuvable.')));
       return;
     }
-    setState(() => _destination = latLng);
-    _mapCtrl.move(latLng, 14);
+    setState(() {
+      _destination = latLng;
+      _center = latLng;
+      _zoom = 14;
+    });
     if (_myLocation != null) await _buildRoute();
   }
 
-  Future<void> _selectPickupDestination({required String label, required num lat, required num lng}) async {
+  Future<void> _selectPickupDestination(
+      {required String label, required num lat, required num lng}) async {
     FocusScope.of(context).unfocus();
     final dest = LatLng(lat.toDouble(), lng.toDouble());
     setState(() {
       _destination = dest;
+      _center = dest;
+      _zoom = 14;
       _destinationLabel = label;
       _suggestions = const [];
       _route = const [];
@@ -239,7 +276,6 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
       _routeDurationSec = null;
       _searchCtrl.text = label;
     });
-    _mapCtrl.move(dest, 14);
     if (_myLocation == null) await _ensureLocationAndCenter();
     await _buildRoute();
   }
@@ -251,7 +287,9 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
     if (_routing) return;
     if (!_maps.isRoutingConfigured) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Clé OpenRouteService manquante: impossible de calculer l’itinéraire.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Token Mapbox manquant: impossible de calculer l’itinéraire.')));
       return;
     }
     setState(() => _routing = true);
@@ -259,26 +297,28 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
       final dir = await _maps.directions(origin: origin, destination: dest);
       if (!mounted) return;
       if (dir == null || dir.polylinePoints.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Itinéraire indisponible.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Itinéraire indisponible.')));
         return;
       }
       setState(() {
         _route = dir.polylinePoints;
         _routeDistanceMeters = dir.distanceMeters;
         _routeDurationSec = dir.durationSec;
+        _center = LatLng((origin.latitude + dest.latitude) / 2, (origin.longitude + dest.longitude) / 2);
+        _zoom = 12;
       });
-      final bounds = fm.LatLngBounds.fromPoints([origin, dest, ...dir.polylinePoints.take(10)]);
-      _mapCtrl.fitCamera(fm.CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(48)));
     } catch (e) {
       debugPrint('Collector route build failed: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur itinéraire: $e')));
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
     } finally {
       if (mounted) setState(() => _routing = false);
     }
   }
 
-  String _formatDistance(int meters) => meters >= 1000 ? '${(meters / 1000).toStringAsFixed(1)} km' : '$meters m';
+  String _formatDistance(int meters) =>
+      meters >= 1000 ? '${(meters / 1000).toStringAsFixed(1)} km' : '$meters m';
 
   String _formatDuration(int seconds) {
     final m = (seconds / 60).round();
@@ -296,14 +336,22 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Carte', style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-            IconButton(onPressed: () => setState(() => _activePickupsFuture = _loadActivePickups()), icon: Icon(Icons.refresh, color: LightModeColors.lightPrimary)),
+            Text('Carte',
+                style: context.textStyles.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold)),
+            IconButton(
+                onPressed: () =>
+                    setState(() => _activePickupsFuture = _loadActivePickups()),
+                icon: Icon(Icons.refresh, color: LightModeColors.lightPrimary)),
           ],
         ),
         const SizedBox(height: 10),
         Container(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: LightModeColors.lightSurfaceVariant)),
+          decoration: BoxDecoration(
+              color: LightModeColors.lightSurface,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              border: Border.all(color: LightModeColors.lightSurfaceVariant)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -315,7 +363,8 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
                       onChanged: _updateSuggestions,
                       decoration: InputDecoration(
                         hintText: 'Destination (adresse ou mission)...',
-                        prefixIcon: Icon(Icons.search, color: LightModeColors.lightPrimary),
+                        prefixIcon: Icon(Icons.search,
+                            color: LightModeColors.lightPrimary),
                         suffixIcon: _searchCtrl.text.trim().isEmpty
                             ? null
                             : IconButton(
@@ -337,7 +386,12 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
                   const SizedBox(width: 12),
                   FilledButton.tonalIcon(
                     onPressed: _locating ? null : _ensureLocationAndCenter,
-                    icon: _locating ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.my_location),
+                    icon: _locating
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.my_location),
                     label: const Text('Moi'),
                   ),
                 ],
@@ -347,21 +401,27 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
                   padding: const EdgeInsets.only(top: 10),
                   child: Text(
                     'Itinéraire: définis OPEN_ROUTE_SERVICE_API_KEY. La carte OSM + recherche restent disponibles.',
-                    style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant),
+                    style: context.textStyles.bodySmall?.copyWith(
+                        color: LightModeColors.lightOnSurfaceVariant),
                   ),
                 ),
               if (_suggestions.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Container(
-                    decoration: BoxDecoration(color: LightModeColors.lightSurfaceVariant.withValues(alpha: 0.35), borderRadius: BorderRadius.circular(AppRadius.md)),
+                    decoration: BoxDecoration(
+                        color: LightModeColors.lightSurfaceVariant
+                            .withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(AppRadius.md)),
                     child: Column(
                       children: _suggestions
                           .map(
                             (s) => ListTile(
                               dense: true,
-                              leading: Icon(Icons.place_outlined, color: LightModeColors.lightPrimary),
-                              title: Text(s.description, maxLines: 2, overflow: TextOverflow.ellipsis),
+                              leading: Icon(Icons.place_outlined,
+                                  color: LightModeColors.lightPrimary),
+                              title: Text(s.description,
+                                  maxLines: 2, overflow: TextOverflow.ellipsis),
                               onTap: () => _selectSuggestion(s),
                             ),
                           )
@@ -376,11 +436,27 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
                     spacing: 10,
                     runSpacing: 10,
                     children: [
-                      if (_myLocation != null) Chip(avatar: Icon(Icons.person_pin_circle, color: LightModeColors.lightPrimary), label: const Text('Ma position')),
-                      if (_destinationLabel != null) Chip(avatar: Icon(Icons.flag_outlined, color: LightModeColors.lightSecondary), label: Text(_destinationLabel!, overflow: TextOverflow.ellipsis)),
+                      if (_myLocation != null)
+                        Chip(
+                            avatar: Icon(Icons.person_pin_circle,
+                                color: LightModeColors.lightPrimary),
+                            label: const Text('Ma position')),
+                      if (_destinationLabel != null)
+                        Chip(
+                            avatar: Icon(Icons.flag_outlined,
+                                color: LightModeColors.lightSecondary),
+                            label: Text(_destinationLabel!,
+                                overflow: TextOverflow.ellipsis)),
                       if (_myLocation != null && _destination != null)
                         ActionChip(
-                          avatar: _routing ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)) : Icon(Icons.alt_route, color: LightModeColors.lightPrimary),
+                          avatar: _routing
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2))
+                              : Icon(Icons.alt_route,
+                                  color: LightModeColors.lightPrimary),
                           label: Text(_routing ? 'Calcul...' : 'Itinéraire'),
                           onPressed: _routing ? null : _buildRoute,
                         ),
@@ -395,16 +471,49 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
                       Expanded(
                         child: Container(
                           padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(color: LightModeColors.lightPrimaryContainer.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(AppRadius.md)),
-                          child: Row(children: [Icon(Icons.straighten, color: LightModeColors.lightPrimary), const SizedBox(width: 10), Expanded(child: Text(_routeDistanceMeters == null ? '—' : _formatDistance(_routeDistanceMeters!), style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold)))]),
+                          decoration: BoxDecoration(
+                              color: LightModeColors.lightPrimaryContainer
+                                  .withValues(alpha: 0.45),
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.md)),
+                          child: Row(children: [
+                            Icon(Icons.straighten,
+                                color: LightModeColors.lightPrimary),
+                            const SizedBox(width: 10),
+                            Expanded(
+                                child: Text(
+                                    _routeDistanceMeters == null
+                                        ? '—'
+                                        : _formatDistance(
+                                            _routeDistanceMeters!),
+                                    style: context.textStyles.titleSmall
+                                        ?.copyWith(
+                                            fontWeight: FontWeight.bold)))
+                          ]),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Container(
                           padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(color: LightModeColors.lightSurfaceVariant.withValues(alpha: 0.35), borderRadius: BorderRadius.circular(AppRadius.md)),
-                          child: Row(children: [Icon(Icons.schedule, color: LightModeColors.lightSecondary), const SizedBox(width: 10), Expanded(child: Text(_routeDurationSec == null ? '—' : _formatDuration(_routeDurationSec!), style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold)))]),
+                          decoration: BoxDecoration(
+                              color: LightModeColors.lightSurfaceVariant
+                                  .withValues(alpha: 0.35),
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.md)),
+                          child: Row(children: [
+                            Icon(Icons.schedule,
+                                color: LightModeColors.lightSecondary),
+                            const SizedBox(width: 10),
+                            Expanded(
+                                child: Text(
+                                    _routeDurationSec == null
+                                        ? '—'
+                                        : _formatDuration(_routeDurationSec!),
+                                    style: context.textStyles.titleSmall
+                                        ?.copyWith(
+                                            fontWeight: FontWeight.bold)))
+                          ]),
                         ),
                       ),
                     ],
@@ -415,22 +524,32 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
         ),
         const SizedBox(height: 12),
         _CollectorMiniMap(
-          mapController: _mapCtrl,
+          center: _center,
+          zoom: _zoom,
           myLocation: _myLocation,
           destination: _destination,
           route: _route,
         ),
         const SizedBox(height: 12),
-        Text('Missions en cours', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        Text('Missions en cours',
+            style: context.textStyles.titleMedium
+                ?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         FutureBuilder(
           future: _activePickupsFuture,
           builder: (context, snap) {
-            if (snap.connectionState == ConnectionState.waiting) return const LinearProgressIndicator();
-            if (snap.hasError) return Text('Erreur: ${snap.error}', style: const TextStyle(color: Colors.red));
+            if (snap.connectionState == ConnectionState.waiting)
+              return const LinearProgressIndicator();
+            if (snap.hasError)
+              return Text('Erreur: ${snap.error}',
+                  style: const TextStyle(color: Colors.red));
             final rows = snap.data ?? const <Map<String, dynamic>>[];
             if (rows.isEmpty) {
-              return _CollectorEmpty(icon: Icons.alt_route, title: 'Aucune mission active', subtitle: 'Acceptez une mission pour afficher son itinéraire ici.');
+              return _CollectorEmpty(
+                  icon: Icons.alt_route,
+                  title: 'Aucune mission active',
+                  subtitle:
+                      'Acceptez une mission pour afficher son itinéraire ici.');
             }
 
             return Column(
@@ -440,7 +559,8 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
                 final addr = req?['addresses'] as Map<String, dynamic>?;
                 final city = (addr?['city'] ?? '') as String;
                 final hood = (addr?['neighborhood'] ?? '') as String;
-                final label = [hood, city].where((s) => s.trim().isNotEmpty).join(' • ');
+                final label =
+                    [hood, city].where((s) => s.trim().isNotEmpty).join(' • ');
 
                 final latRaw = addr?['latitude'];
                 final lngRaw = addr?['longitude'];
@@ -450,27 +570,51 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Container(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: LightModeColors.lightSurfaceVariant)),
+                    decoration: BoxDecoration(
+                        color: LightModeColors.lightSurface,
+                        borderRadius: BorderRadius.circular(AppRadius.lg),
+                        border: Border.all(
+                            color: LightModeColors.lightSurfaceVariant)),
                     child: Row(
                       children: [
-                        const CircleAvatar(backgroundColor: LightModeColors.lightPrimaryContainer, child: Icon(Icons.location_on_outlined, color: LightModeColors.lightPrimary)),
+                        const CircleAvatar(
+                            backgroundColor:
+                                LightModeColors.lightPrimaryContainer,
+                            child: Icon(Icons.location_on_outlined,
+                                color: LightModeColors.lightPrimary)),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(label.isEmpty ? 'Adresse de mission' : label, style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                              Text(label.isEmpty ? 'Adresse de mission' : label,
+                                  style: context.textStyles.titleSmall
+                                      ?.copyWith(fontWeight: FontWeight.bold)),
                               const SizedBox(height: 2),
-                              Text(reqId == null ? '' : 'Demande #${reqId.substring(0, 6)}', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
+                              Text(
+                                  reqId == null
+                                      ? ''
+                                      : 'Demande #${reqId.substring(0, 6)}',
+                                  style: context.textStyles.bodySmall?.copyWith(
+                                      color: LightModeColors
+                                          .lightOnSurfaceVariant)),
                             ],
                           ),
                         ),
                         IconButton(
-                          tooltip: hasCoord ? 'Itinéraire' : 'Coordonnées manquantes',
+                          tooltip: hasCoord
+                              ? 'Itinéraire'
+                              : 'Coordonnées manquantes',
                           onPressed: !hasCoord
                               ? null
-                              : () => _selectPickupDestination(label: label.isEmpty ? 'Mission' : label, lat: latRaw, lng: lngRaw),
-                          icon: Icon(Icons.alt_route, color: hasCoord ? LightModeColors.lightPrimary : LightModeColors.lightOnSurfaceVariant),
+                              : () => _selectPickupDestination(
+                                  label: label.isEmpty ? 'Mission' : label,
+                                  lat: latRaw,
+                                  lng: lngRaw),
+                          icon: Icon(Icons.alt_route,
+                              color: hasCoord
+                                  ? LightModeColors.lightPrimary
+                                  : LightModeColors.lightOnSurfaceVariant),
                         ),
                       ],
                     ),
@@ -487,66 +631,31 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
 }
 
 class _CollectorMiniMap extends StatelessWidget {
-  const _CollectorMiniMap({required this.mapController, required this.myLocation, required this.destination, required this.route});
-  final fm.MapController mapController;
+  const _CollectorMiniMap({
+    required this.center,
+    required this.zoom,
+    required this.myLocation,
+    required this.destination,
+    required this.route,
+  });
+  final LatLng center;
+  final double zoom;
   final LatLng? myLocation;
   final LatLng? destination;
   final List<LatLng> route;
 
   @override
   Widget build(BuildContext context) {
-    final markers = <fm.Marker>[];
-    if (myLocation != null) {
-      markers.add(
-        fm.Marker(
-          point: myLocation!,
-          width: 46,
-          height: 46,
-          child: Container(
-            decoration: BoxDecoration(color: LightModeColors.lightPrimaryContainer, borderRadius: BorderRadius.circular(AppRadius.max), border: Border.all(color: LightModeColors.lightPrimary)),
-            child: Icon(Icons.person_pin_circle, color: LightModeColors.lightPrimary),
-          ),
-        ),
-      );
-    }
-    if (destination != null) {
-      markers.add(
-        fm.Marker(
-          point: destination!,
-          width: 46,
-          height: 46,
-          child: Container(
-            decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.max), border: Border.all(color: LightModeColors.lightSecondary)),
-            child: Icon(Icons.flag, color: LightModeColors.lightSecondary),
-          ),
-        ),
-      );
-    }
+    final markers = <MapPin>[
+      if (myLocation != null) MapPin(point: myLocation!, color: LightModeColors.lightPrimaryContainer, radius: 9),
+      if (destination != null) MapPin(point: destination!, color: LightModeColors.lightSecondary, radius: 9),
+    ];
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppRadius.lg),
       child: SizedBox(
         height: 260,
-        child: fm.FlutterMap(
-          mapController: mapController,
-          options: fm.MapOptions(
-            initialCenter: _CollectorMapTabState._douala,
-            initialZoom: 12,
-            interactionOptions: const fm.InteractionOptions(flags: fm.InteractiveFlag.all & ~fm.InteractiveFlag.rotate),
-          ),
-          children: [
-            fm.TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'cleancity',
-              tileProvider: fm.NetworkTileProvider(headers: const {'User-Agent': MapsService.nominatimUserAgent}),
-            ),
-            if (route.isNotEmpty)
-              fm.PolylineLayer(
-                polylines: [fm.Polyline(points: route, strokeWidth: 4.5, color: LightModeColors.lightPrimary)],
-              ),
-            if (markers.isNotEmpty) fm.MarkerLayer(markers: markers),
-          ],
-        ),
+        child: CleanCityMapView(center: center, zoom: zoom, markers: markers, route: route),
       ),
     );
   }
@@ -568,7 +677,8 @@ class _CollectorMissionsTabState extends State<_CollectorMissionsTab> {
     _future = WasteRequestService().listAvailableMissions();
   }
 
-  Future<void> _refresh() async => setState(() => _future = WasteRequestService().listAvailableMissions());
+  Future<void> _refresh() async =>
+      setState(() => _future = WasteRequestService().listAvailableMissions());
 
   @override
   Widget build(BuildContext context) {
@@ -580,33 +690,52 @@ class _CollectorMissionsTabState extends State<_CollectorMissionsTab> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Missions', style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              IconButton(onPressed: _refresh, icon: Icon(Icons.refresh, color: LightModeColors.lightPrimary)),
+              Text('Missions',
+                  style: context.textStyles.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+              IconButton(
+                  onPressed: _refresh,
+                  icon:
+                      Icon(Icons.refresh, color: LightModeColors.lightPrimary)),
             ],
           ),
           const SizedBox(height: 12),
           FutureBuilder(
             future: _future,
             builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) return const LinearProgressIndicator();
-              if (snap.hasError) return Text('Erreur: ${snap.error}', style: const TextStyle(color: Colors.red));
-              final items = (snap.data as List?)?.cast<WasteRequest>() ?? const <WasteRequest>[];
+              if (snap.connectionState == ConnectionState.waiting)
+                return const LinearProgressIndicator();
+              if (snap.hasError)
+                return Text('Erreur: ${snap.error}',
+                    style: const TextStyle(color: Colors.red));
+              final items = (snap.data as List?)?.cast<WasteRequest>() ??
+                  const <WasteRequest>[];
               if (items.isEmpty) {
-                return _CollectorEmpty(icon: Icons.inbox_outlined, title: 'Aucune mission disponible', subtitle: 'Revenez plus tard ou changez de zone.');
+                return _CollectorEmpty(
+                    icon: Icons.inbox_outlined,
+                    title: 'Aucune mission disponible',
+                    subtitle: 'Revenez plus tard ou changez de zone.');
               }
               return Column(
                 children: items.map((e) {
                   final r = e;
                   final type = '${r.wasteType}'.toUpperCase();
                   final addr = r.address;
-                  final location = addr == null ? '—' : [addr['neighborhood'], addr['city']].whereType<String>().where((s) => s.trim().isNotEmpty).join(', ');
-                  final weight = '${r.quantityEstimateKg.toStringAsFixed(0)} kg';
+                  final location = addr == null
+                      ? '—'
+                      : [addr['neighborhood'], addr['city']]
+                          .whereType<String>()
+                          .where((s) => s.trim().isNotEmpty)
+                          .join(', ');
+                  final weight =
+                      '${r.quantityEstimateKg.toStringAsFixed(0)} kg';
                   final schedAt = r.scheduledAt;
                   final slot = (r.timeSlot ?? '').trim();
                   final sched = schedAt == null && slot.isEmpty
                       ? ''
                       : [
-                          if (schedAt != null) '${schedAt.day.toString().padLeft(2, '0')}/${schedAt.month.toString().padLeft(2, '0')}',
+                          if (schedAt != null)
+                            '${schedAt.day.toString().padLeft(2, '0')}/${schedAt.month.toString().padLeft(2, '0')}',
                           if (slot.isNotEmpty) slot,
                         ].join(' • ');
                   return Padding(
@@ -617,7 +746,8 @@ class _CollectorMissionsTabState extends State<_CollectorMissionsTab> {
                       title: sched.isEmpty ? 'Collecte' : 'Collecte • $sched',
                       weight: weight,
                       price: '— XAF',
-                      onTap: () => context.push(AppRoutes.missionDetails, extra: r.id),
+                      onTap: () =>
+                          context.push(AppRoutes.missionDetails, extra: r.id),
                     ),
                   );
                 }).toList(),
@@ -654,11 +784,14 @@ class _CollectorHistoryTabState extends State<_CollectorHistoryTab> {
       if (uid == null) return [];
       final rows = await client
           .from('pickups')
-          .select('id, request_id, collector_id, accepted_at, collected_at, delivered_at, waste_requests(*, addresses(*))')
+          .select(
+              'id, request_id, collector_id, accepted_at, collected_at, delivered_at, waste_requests(*, addresses(*))')
           .eq('collector_id', uid)
           .order('accepted_at', ascending: false)
           .limit(50);
-      return (rows as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      return (rows as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
     } catch (e) {
       debugPrint('Collector history load failed: $e');
       rethrow;
@@ -669,8 +802,10 @@ class _CollectorHistoryTabState extends State<_CollectorHistoryTab> {
     if (raw.trim().isEmpty) return '';
     try {
       final dt = DateTime.parse(raw).toLocal();
-      final d = '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
-      final t = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      final d =
+          '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+      final t =
+          '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
       return '$d • $t';
     } catch (_) {
       return raw;
@@ -706,19 +841,31 @@ class _CollectorHistoryTabState extends State<_CollectorHistoryTab> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Historique', style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              IconButton(onPressed: () => setState(() => _future = _load()), icon: Icon(Icons.refresh, color: LightModeColors.lightPrimary)),
+              Text('Historique',
+                  style: context.textStyles.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+              IconButton(
+                  onPressed: () => setState(() => _future = _load()),
+                  icon:
+                      Icon(Icons.refresh, color: LightModeColors.lightPrimary)),
             ],
           ),
           const SizedBox(height: 12),
           FutureBuilder(
             future: _future,
             builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) return const LinearProgressIndicator();
-              if (snap.hasError) return Text('Erreur: ${snap.error}', style: const TextStyle(color: Colors.red));
+              if (snap.connectionState == ConnectionState.waiting)
+                return const LinearProgressIndicator();
+              if (snap.hasError)
+                return Text('Erreur: ${snap.error}',
+                    style: const TextStyle(color: Colors.red));
               final rows = snap.data ?? const <Map<String, dynamic>>[];
               if (rows.isEmpty) {
-                return _CollectorEmpty(icon: Icons.history, title: 'Aucune mission', subtitle: 'Vos missions acceptées et terminées apparaîtront ici.');
+                return _CollectorEmpty(
+                    icon: Icons.history,
+                    title: 'Aucune mission',
+                    subtitle:
+                        'Vos missions acceptées et terminées apparaîtront ici.');
               }
 
               return Column(
@@ -728,13 +875,19 @@ class _CollectorHistoryTabState extends State<_CollectorHistoryTab> {
                   final addr = req?['addresses'] as Map<String, dynamic>?;
                   final city = (addr?['city'] ?? '') as String;
                   final hood = (addr?['neighborhood'] ?? '') as String;
-                  final location = [hood, city].where((s) => s.trim().isNotEmpty).join(', ');
+                  final location =
+                      [hood, city].where((s) => s.trim().isNotEmpty).join(', ');
                   final status = (req?['status'] ?? '—') as String;
-                  final type = ((req?['waste_type'] ?? 'mixed') as String).toUpperCase();
-                  final acceptedAt = _fmtDateTime((row['accepted_at'] ?? '').toString());
-                  final collectedAt = _fmtDateTime((row['collected_at'] ?? '').toString());
-                  final deliveredAt = _fmtDateTime((row['delivered_at'] ?? '').toString());
-                  final weightKg = (req?['quantity_estimate_kg'] ?? '').toString();
+                  final type =
+                      ((req?['waste_type'] ?? 'mixed') as String).toUpperCase();
+                  final acceptedAt =
+                      _fmtDateTime((row['accepted_at'] ?? '').toString());
+                  final collectedAt =
+                      _fmtDateTime((row['collected_at'] ?? '').toString());
+                  final deliveredAt =
+                      _fmtDateTime((row['delivered_at'] ?? '').toString());
+                  final weightKg =
+                      (req?['quantity_estimate_kg'] ?? '').toString();
 
                   final timeline = [
                     if (acceptedAt.isNotEmpty) 'Acceptée: $acceptedAt',
@@ -748,9 +901,14 @@ class _CollectorHistoryTabState extends State<_CollectorHistoryTab> {
                       type: type,
                       location: location.isEmpty ? '—' : location,
                       title: 'Statut: ${_statusLabel(status)}',
-                      weight: weightKg.trim().isEmpty ? '—' : '${double.tryParse(weightKg)?.toStringAsFixed(0) ?? weightKg} kg',
+                      weight: weightKg.trim().isEmpty
+                          ? '—'
+                          : '${double.tryParse(weightKg)?.toStringAsFixed(0) ?? weightKg} kg',
                       price: timeline.isEmpty ? acceptedAt : timeline,
-                      onTap: reqId == null ? () {} : () => context.push(AppRoutes.missionDetails, extra: reqId),
+                      onTap: reqId == null
+                          ? () {}
+                          : () => context.push(AppRoutes.missionDetails,
+                              extra: reqId),
                     ),
                   );
                 }).toList(),
@@ -793,15 +951,30 @@ class _CollectorWalletBodyState extends State<_CollectorWalletBody> {
     try {
       final client = Supabase.instance.client;
       final uid = client.auth.currentUser?.id;
-      if (uid == null) return const _WalletData(transactions: [], payoutRequests: []);
+      if (uid == null)
+        return const _WalletData(transactions: [], payoutRequests: []);
 
-      final rows = await client.from('eco_transactions').select('*').eq('user_id', uid).order('created_at', ascending: false).limit(50);
-      final tx = (rows as List).map((e) => Map<String, dynamic>.from(e as Map)).toList(growable: false);
+      final rows = await client
+          .from('eco_transactions')
+          .select('*')
+          .eq('user_id', uid)
+          .order('created_at', ascending: false)
+          .limit(50);
+      final tx = (rows as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(growable: false);
 
       List<Map<String, dynamic>> payoutRows = const [];
       try {
-        final reqs = await client.from('payout_requests').select('*').eq('user_id', uid).order('created_at', ascending: false).limit(50);
-        payoutRows = (reqs as List).map((e) => Map<String, dynamic>.from(e as Map)).toList(growable: false);
+        final reqs = await client
+            .from('payout_requests')
+            .select('*')
+            .eq('user_id', uid)
+            .order('created_at', ascending: false)
+            .limit(50);
+        payoutRows = (reqs as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(growable: false);
       } catch (e) {
         // Table/policies might not exist yet in Supabase.
         debugPrint('Payout requests load skipped/failed: $e');
@@ -834,17 +1007,26 @@ class _CollectorWalletBodyState extends State<_CollectorWalletBody> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Portefeuille', style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              IconButton(onPressed: () => setState(() => _future = _load()), icon: Icon(Icons.refresh, color: LightModeColors.lightPrimary)),
+              Text('Portefeuille',
+                  style: context.textStyles.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+              IconButton(
+                  onPressed: () => setState(() => _future = _load()),
+                  icon:
+                      Icon(Icons.refresh, color: LightModeColors.lightPrimary)),
             ],
           ),
           const SizedBox(height: 12),
           FutureBuilder(
             future: _future,
             builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) return const LinearProgressIndicator();
-              if (snap.hasError) return Text('Erreur: ${snap.error}', style: const TextStyle(color: Colors.red));
-              final data = snap.data ?? const _WalletData(transactions: [], payoutRequests: []);
+              if (snap.connectionState == ConnectionState.waiting)
+                return const LinearProgressIndicator();
+              if (snap.hasError)
+                return Text('Erreur: ${snap.error}',
+                    style: const TextStyle(color: Colors.red));
+              final data = snap.data ??
+                  const _WalletData(transactions: [], payoutRequests: []);
               final rows = data.transactions;
               final total = _sumPoints(rows);
 
@@ -853,15 +1035,26 @@ class _CollectorWalletBodyState extends State<_CollectorWalletBody> {
                   Container(
                     width: double.infinity,
                     padding: AppSpacing.paddingLg,
-                    decoration: BoxDecoration(color: LightModeColors.lightPrimary, borderRadius: BorderRadius.circular(AppRadius.lg)),
+                    decoration: BoxDecoration(
+                        color: LightModeColors.lightPrimary,
+                        borderRadius: BorderRadius.circular(AppRadius.lg)),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Solde (XAF)', style: context.textStyles.labelMedium?.copyWith(color: LightModeColors.lightOnPrimary.withValues(alpha: 0.85))),
+                        Text('Solde (XAF)',
+                            style: context.textStyles.labelMedium?.copyWith(
+                                color: LightModeColors.lightOnPrimary
+                                    .withValues(alpha: 0.85))),
                         const SizedBox(height: 8),
-                        Text('$total', style: context.textStyles.displaySmall?.copyWith(color: LightModeColors.lightOnPrimary, fontWeight: FontWeight.bold)),
+                        Text('$total',
+                            style: context.textStyles.displaySmall?.copyWith(
+                                color: LightModeColors.lightOnPrimary,
+                                fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        Text('Crédits après validation centre', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnPrimary.withValues(alpha: 0.8))),
+                        Text('Crédits après validation centre',
+                            style: context.textStyles.bodySmall?.copyWith(
+                                color: LightModeColors.lightOnPrimary
+                                    .withValues(alpha: 0.8))),
                       ],
                     ),
                   ),
@@ -874,19 +1067,31 @@ class _CollectorWalletBodyState extends State<_CollectorWalletBody> {
                           context: context,
                           isScrollControlled: true,
                           backgroundColor: LightModeColors.lightSurface,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
-                          builder: (context) => MobileMoneyWithdrawSheet(onSuccess: () => setState(() => _future = _load())),
+                          shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.xl)),
+                          builder: (context) => MobileMoneyWithdrawSheet(
+                              onSuccess: () =>
+                                  setState(() => _future = _load())),
                         );
                       },
-                      icon: const Icon(Icons.account_balance_wallet_rounded, color: LightModeColors.lightOnPrimary),
-                      label: Text('Retirer via Mobile Money', style: context.textStyles.titleSmall?.copyWith(color: LightModeColors.lightOnPrimary, fontWeight: FontWeight.bold)),
+                      icon: const Icon(Icons.account_balance_wallet_rounded,
+                          color: LightModeColors.lightOnPrimary),
+                      label: Text('Retirer via Mobile Money',
+                          style: context.textStyles.titleSmall?.copyWith(
+                              color: LightModeColors.lightOnPrimary,
+                              fontWeight: FontWeight.bold)),
                     ),
                   ),
                   const SizedBox(height: 12),
                   _PayoutRequestsPanel(rows: data.payoutRequests),
                   const SizedBox(height: 12),
                   if (rows.isEmpty)
-                    _CollectorEmpty(icon: Icons.receipt_long, title: 'Aucune transaction', subtitle: 'Les paiements virtuels apparaîtront après validation centre.'),
+                    _CollectorEmpty(
+                        icon: Icons.receipt_long,
+                        title: 'Aucune transaction',
+                        subtitle:
+                            'Les paiements virtuels apparaîtront après validation centre.'),
                   if (rows.isNotEmpty)
                     ...rows.map((r) {
                       final pts = r['points']?.toString() ?? '0';
@@ -896,13 +1101,40 @@ class _CollectorWalletBodyState extends State<_CollectorWalletBody> {
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Container(
                           padding: AppSpacing.paddingLg,
-                          decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: LightModeColors.lightSurfaceVariant)),
+                          decoration: BoxDecoration(
+                              color: LightModeColors.lightSurface,
+                              borderRadius: BorderRadius.circular(AppRadius.lg),
+                              border: Border.all(
+                                  color: LightModeColors.lightSurfaceVariant)),
                           child: Row(
                             children: [
-                              const CircleAvatar(backgroundColor: LightModeColors.lightPrimaryContainer, child: Icon(Icons.stars, color: LightModeColors.lightPrimary)),
+                              const CircleAvatar(
+                                  backgroundColor:
+                                      LightModeColors.lightPrimaryContainer,
+                                  child: Icon(Icons.stars,
+                                      color: LightModeColors.lightPrimary)),
                               const SizedBox(width: 16),
-                              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(reason, style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold)), const SizedBox(height: 2), Text(at, style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant))])),
-                              Text('+$pts', style: context.textStyles.titleMedium?.copyWith(color: LightModeColors.lightPrimary, fontWeight: FontWeight.bold)),
+                              Expanded(
+                                  child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                    Text(reason,
+                                        style: context.textStyles.titleSmall
+                                            ?.copyWith(
+                                                fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 2),
+                                    Text(at,
+                                        style: context.textStyles.bodySmall
+                                            ?.copyWith(
+                                                color: LightModeColors
+                                                    .lightOnSurfaceVariant))
+                                  ])),
+                              Text('+$pts',
+                                  style: context.textStyles.titleMedium
+                                      ?.copyWith(
+                                          color: LightModeColors.lightPrimary,
+                                          fontWeight: FontWeight.bold)),
                             ],
                           ),
                         ),
@@ -960,12 +1192,21 @@ class _PayoutRequestsPanel extends StatelessWidget {
       return Container(
         width: double.infinity,
         padding: AppSpacing.paddingLg,
-        decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: LightModeColors.lightSurfaceVariant)),
+        decoration: BoxDecoration(
+            color: LightModeColors.lightSurface,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: LightModeColors.lightSurfaceVariant)),
         child: Row(
           children: [
-            const CircleAvatar(backgroundColor: LightModeColors.lightPrimaryContainer, child: Icon(Icons.payments_outlined, color: LightModeColors.lightPrimary)),
+            const CircleAvatar(
+                backgroundColor: LightModeColors.lightPrimaryContainer,
+                child: Icon(Icons.payments_outlined,
+                    color: LightModeColors.lightPrimary)),
             const SizedBox(width: 12),
-            Expanded(child: Text('Aucune demande de retrait.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant))),
+            Expanded(
+                child: Text('Aucune demande de retrait.',
+                    style: context.textStyles.bodySmall?.copyWith(
+                        color: LightModeColors.lightOnSurfaceVariant))),
           ],
         ),
       );
@@ -974,11 +1215,16 @@ class _PayoutRequestsPanel extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: AppSpacing.paddingLg,
-      decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: LightModeColors.lightSurfaceVariant)),
+      decoration: BoxDecoration(
+          color: LightModeColors.lightSurface,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(color: LightModeColors.lightSurfaceVariant)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Retraits Mobile Money', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+          Text('Retraits Mobile Money',
+              style: context.textStyles.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           ...rows.take(6).map((r) {
             final provider = (r['provider'] ?? 'Mobile Money').toString();
@@ -990,22 +1236,37 @@ class _PayoutRequestsPanel extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 10),
               child: Row(
                 children: [
-                  const CircleAvatar(backgroundColor: LightModeColors.lightPrimaryContainer, child: Icon(Icons.swap_horiz_rounded, color: LightModeColors.lightPrimary)),
+                  const CircleAvatar(
+                      backgroundColor: LightModeColors.lightPrimaryContainer,
+                      child: Icon(Icons.swap_horiz_rounded,
+                          color: LightModeColors.lightPrimary)),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('$provider • $phone', style: context.textStyles.bodyMedium?.copyWith(fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                        Text('$provider • $phone',
+                            style: context.textStyles.bodyMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 2),
-                        Text('Montant: $amount XAF', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
+                        Text('Montant: $amount XAF',
+                            style: context.textStyles.bodySmall?.copyWith(
+                                color: LightModeColors.lightOnSurfaceVariant)),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999), border: Border.all(color: color.withValues(alpha: 0.35))),
-                    child: Text(_statusLabel(status), style: context.textStyles.labelSmall?.copyWith(color: color, fontWeight: FontWeight.bold)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                        border:
+                            Border.all(color: color.withValues(alpha: 0.35))),
+                    child: Text(_statusLabel(status),
+                        style: context.textStyles.labelSmall?.copyWith(
+                            color: color, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -1018,7 +1279,13 @@ class _PayoutRequestsPanel extends StatelessWidget {
 }
 
 class _MissionCard extends StatelessWidget {
-  const _MissionCard({required this.type, required this.location, required this.title, required this.weight, required this.price, required this.onTap});
+  const _MissionCard(
+      {required this.type,
+      required this.location,
+      required this.title,
+      required this.weight,
+      required this.price,
+      required this.onTap});
   final String type;
   final String location;
   final String title;
@@ -1033,20 +1300,38 @@ class _MissionCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppRadius.lg),
       child: Container(
         padding: AppSpacing.paddingLg,
-        decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: LightModeColors.lightSurfaceVariant)),
+        decoration: BoxDecoration(
+            color: LightModeColors.lightSurface,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: LightModeColors.lightSurfaceVariant)),
         child: Row(
           children: [
-            CircleAvatar(backgroundColor: LightModeColors.lightPrimaryContainer, child: Icon(Icons.local_shipping_outlined, color: LightModeColors.lightPrimary)),
+            CircleAvatar(
+                backgroundColor: LightModeColors.lightPrimaryContainer,
+                child: Icon(Icons.local_shipping_outlined,
+                    color: LightModeColors.lightPrimary)),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(type, style: context.textStyles.labelSmall?.copyWith(color: LightModeColors.lightPrimary, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                  Text(type,
+                      style: context.textStyles.labelSmall?.copyWith(
+                          color: LightModeColors.lightPrimary,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5)),
                   const SizedBox(height: 4),
-                  Text(location, maxLines: 1, overflow: TextOverflow.ellipsis, style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(location,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.textStyles.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 2),
-                  Text('$title • $weight', maxLines: 2, overflow: TextOverflow.ellipsis, style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
+                  Text('$title • $weight',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.textStyles.bodySmall?.copyWith(
+                          color: LightModeColors.lightOnSurfaceVariant)),
                 ],
               ),
             ),
@@ -1058,7 +1343,9 @@ class _MissionCard extends StatelessWidget {
                 textAlign: TextAlign.right,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: context.textStyles.labelLarge?.copyWith(color: LightModeColors.lightPrimary, fontWeight: FontWeight.bold),
+                style: context.textStyles.labelLarge?.copyWith(
+                    color: LightModeColors.lightPrimary,
+                    fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -1069,7 +1356,8 @@ class _MissionCard extends StatelessWidget {
 }
 
 class _CollectorEmpty extends StatelessWidget {
-  const _CollectorEmpty({required this.icon, required this.title, required this.subtitle});
+  const _CollectorEmpty(
+      {required this.icon, required this.title, required this.subtitle});
   final IconData icon;
   final String title;
   final String subtitle;
@@ -1078,18 +1366,27 @@ class _CollectorEmpty extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: AppSpacing.paddingLg,
-      decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: LightModeColors.lightSurfaceVariant)),
+      decoration: BoxDecoration(
+          color: LightModeColors.lightSurface,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(color: LightModeColors.lightSurfaceVariant)),
       child: Row(
         children: [
-          CircleAvatar(backgroundColor: LightModeColors.lightPrimaryContainer, child: Icon(icon, color: LightModeColors.lightPrimary)),
+          CircleAvatar(
+              backgroundColor: LightModeColors.lightPrimaryContainer,
+              child: Icon(icon, color: LightModeColors.lightPrimary)),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                Text(title,
+                    style: context.textStyles.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text(subtitle, style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
+                Text(subtitle,
+                    style: context.textStyles.bodySmall?.copyWith(
+                        color: LightModeColors.lightOnSurfaceVariant)),
               ],
             ),
           )
@@ -1110,52 +1407,19 @@ class _RequestLocationMap extends StatelessWidget {
     final latRaw = address?['latitude'];
     final lngRaw = address?['longitude'];
     final hasCoords = latRaw is num && lngRaw is num;
-    final center = hasCoords ? LatLng(latRaw.toDouble(), lngRaw.toDouble()) : _douala;
+    final center =
+        hasCoords ? LatLng(latRaw.toDouble(), lngRaw.toDouble()) : _douala;
 
-    final markers = <fm.Marker>[];
-    if (hasCoords) {
-      markers.add(
-        fm.Marker(
-          point: center,
-          width: 46,
-          height: 46,
-          child: Container(
-            decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.max), border: Border.all(color: LightModeColors.lightPrimary)),
-            child: const Icon(Icons.location_on, color: LightModeColors.lightPrimary),
-          ),
-        ),
-      );
-    }
+    final markers = <MapPin>[
+      if (hasCoords) MapPin(point: center, color: LightModeColors.lightPrimary, radius: 9),
+    ];
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppRadius.lg),
       child: SizedBox(
         height: 200,
         width: double.infinity,
-        child: fm.FlutterMap(
-          options: fm.MapOptions(
-            initialCenter: center,
-            initialZoom: hasCoords ? 15 : 12,
-            interactionOptions: const fm.InteractionOptions(flags: fm.InteractiveFlag.all & ~fm.InteractiveFlag.rotate),
-          ),
-          children: [
-            fm.TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'cleancity',
-              tileProvider: fm.NetworkTileProvider(headers: const {'User-Agent': MapsService.nominatimUserAgent}),
-            ),
-            if (markers.isNotEmpty) fm.MarkerLayer(markers: markers),
-            if (!hasCoords)
-              fm.RichAttributionWidget(
-                attributions: [
-                  fm.TextSourceAttribution(
-                    'Coordonnées GPS manquantes • Ajoutez “Moi” lors de la création de demande',
-                    onTap: () {},
-                  )
-                ],
-              ),
-          ],
-        ),
+        child: CleanCityMapView(center: center, zoom: hasCoords ? 15 : 12, markers: markers),
       ),
     );
   }
@@ -1190,16 +1454,19 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
         return 'MISSION DÉJÀ ACCEPTÉE.';
       }
     } catch (_) {}
-    return 'Erreur: $e';
+    return AppErrorHandler.toUserMessage(e);
   }
 
   @override
   void initState() {
     super.initState();
-    _future = widget.requestId == null ? Future.value(null) : WasteRequestService().getById(widget.requestId!);
+    _future = widget.requestId == null
+        ? Future.value(null)
+        : WasteRequestService().getMissionForCollector(widget.requestId!);
   }
 
-  Future<void> _run(Future<void> Function() fn, {String? successMessage}) async {
+  Future<void> _run(Future<void> Function() fn,
+      {String? successMessage}) async {
     if (_busy) return;
     setState(() {
       _busy = true;
@@ -1208,7 +1475,9 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
       await fn();
       if (!mounted) return;
       setState(() {
-        _future = widget.requestId == null ? Future.value(null) : WasteRequestService().getById(widget.requestId!);
+        _future = widget.requestId == null
+            ? Future.value(null)
+            : WasteRequestService().getMissionForCollector(widget.requestId!);
       });
       final scheme = Theme.of(context).colorScheme;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1223,7 +1492,8 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
               Expanded(
                 child: Text(
                   successMessage ?? 'Mise à jour effectuée.',
-                  style: TextStyle(color: scheme.onPrimary, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                      color: scheme.onPrimary, fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -1246,7 +1516,8 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
               Expanded(
                 child: Text(
                   _friendlyError(e),
-                  style: TextStyle(color: scheme.onError, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                      color: scheme.onError, fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -1270,7 +1541,8 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: LightModeColors.lightSurface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.xl)),
       builder: (context) {
         return CenterPickerSheet(
           onSelected: (c) {
@@ -1285,7 +1557,8 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
     if (center == null) return;
 
     return _run(
-      () => WasteRequestService().markDeliveredToCenter(requestId: requestId, centerId: center.id),
+      () => WasteRequestService()
+          .markDeliveredToCenter(requestId: requestId, centerId: center.id),
       successMessage: 'Livraison confirmée.',
     );
   }
@@ -1295,7 +1568,8 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
     final requestId = widget.requestId;
     return Scaffold(
       appBar: AppBar(
-        title: Text(requestId == null ? 'Mission' : 'Mission', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: Text(requestId == null ? 'Mission' : 'Mission',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
           IconButton(
@@ -1305,13 +1579,18 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                 ? null
                 : () async {
                     try {
-                      final threadId = await ChatService().getOrCreateThreadForRequest(requestId: requestId);
+                      final threadId = await ChatService()
+                          .getOrCreateThreadForRequest(requestId: requestId);
                       if (!context.mounted) return;
-                      context.push(ChatRoutes.room, extra: {'threadId': threadId, 'requestId': requestId});
+                      context.push(ChatRoutes.room, extra: {
+                        'threadId': threadId,
+                        'requestId': requestId
+                      });
                     } catch (e) {
                       debugPrint('Open chat failed: $e');
                       if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+                      AppSnackbars.error(
+                          context, AppErrorHandler.toUserMessage(e));
                     }
                   },
           ),
@@ -1320,16 +1599,41 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
       body: FutureBuilder(
         future: _future,
         builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-          if (snap.hasError) return Center(child: Text('Erreur: ${snap.error}', style: const TextStyle(color: Colors.red)));
+          if (snap.connectionState == ConnectionState.waiting)
+            return const Center(child: CircularProgressIndicator());
+          if (snap.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Impossible de charger la mission. Verifiez votre connexion puis reessayez.',
+                  style: context.textStyles.titleSmall,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            );
+          }
           final r = snap.data;
-          if (requestId == null || r == null) return Center(child: Text('Mission introuvable', style: context.textStyles.titleMedium));
+          if (requestId == null || r == null) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Cette mission n est plus disponible. Retournez a la liste des missions et actualisez.',
+                  style: context.textStyles.titleSmall,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            );
+          }
 
           final addr = r.address;
           final city = (addr?['city'] ?? '') as String;
           final hood = (addr?['neighborhood'] ?? '') as String;
           final details = (addr?['details'] ?? '') as String;
-          final addressLine = [hood, city, details].where((s) => s.trim().isNotEmpty).join(' • ');
+          final addressLine = [hood, city, details]
+              .where((s) => s.trim().isNotEmpty)
+              .join(' • ');
 
           return SingleChildScrollView(
             padding: AppSpacing.paddingLg,
@@ -1339,14 +1643,25 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                 _RequestLocationMap(address: addr),
                 const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(color: LightModeColors.lightPrimaryContainer, borderRadius: BorderRadius.circular(16)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                      color: LightModeColors.lightPrimaryContainer,
+                      borderRadius: BorderRadius.circular(16)),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: LightModeColors.lightPrimary)),
+                      Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: LightModeColors.lightPrimary)),
                       const SizedBox(width: 8),
-                      Text('STATUT: ${r.status.toUpperCase()}', style: context.textStyles.labelSmall?.copyWith(color: LightModeColors.lightPrimary, fontWeight: FontWeight.bold)),
+                      Text('STATUT: ${r.status.toUpperCase()}',
+                          style: context.textStyles.labelSmall?.copyWith(
+                              color: LightModeColors.lightPrimary,
+                              fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
@@ -1357,13 +1672,19 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                     onPressed: () async {
                       try {
                         // Chat lié à la demande: conserve l'historique de la mission.
-                        final threadId = await ChatService().getOrCreateThreadForRequest(requestId: requestId);
+                        final threadId = await ChatService()
+                            .getOrCreateThreadForRequest(requestId: requestId);
                         if (!context.mounted) return;
-                        context.push(ChatRoutes.room, extra: {'threadId': threadId, 'requestId': requestId});
+                        context.push(ChatRoutes.room, extra: {
+                          'threadId': threadId,
+                          'requestId': requestId
+                        });
                       } catch (e) {
-                        debugPrint('Open request chat (collector→generator) failed: $e');
+                        debugPrint(
+                            'Open request chat (collector→generator) failed: $e');
                         if (!context.mounted) return;
-                        AppSnackbars.error(context, 'Impossible d’ouvrir le chat.');
+                        AppSnackbars.error(
+                            context, 'Impossible d’ouvrir le chat.');
                       }
                     },
                     icon: const Icon(Icons.chat_bubble_outline),
@@ -1371,23 +1692,56 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                Text('Détails de la collecte', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                Text('Détails de la collecte',
+                    style: context.textStyles.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 Row(
                   children: [
                     Expanded(
                       child: Container(
                         padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(border: Border.all(color: LightModeColors.lightSurfaceVariant), borderRadius: BorderRadius.circular(AppRadius.md), color: LightModeColors.lightSurface),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('TYPE DE DÉCHET', style: context.textStyles.labelSmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant)), Text(r.wasteType.toUpperCase(), style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold))]),
+                        decoration: BoxDecoration(
+                            border: Border.all(
+                                color: LightModeColors.lightSurfaceVariant),
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            color: LightModeColors.lightSurface),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('TYPE DE DÉCHET',
+                                  style: context.textStyles.labelSmall
+                                      ?.copyWith(
+                                          color: LightModeColors
+                                              .lightOnSurfaceVariant)),
+                              Text(r.wasteType.toUpperCase(),
+                                  style: context.textStyles.titleSmall
+                                      ?.copyWith(fontWeight: FontWeight.bold))
+                            ]),
                       ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Container(
                         padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(border: Border.all(color: LightModeColors.lightSurfaceVariant), borderRadius: BorderRadius.circular(AppRadius.md), color: LightModeColors.lightSurface),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('POIDS ESTIMÉ', style: context.textStyles.labelSmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant)), Text('${r.quantityEstimateKg.toStringAsFixed(0)} kg', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold))]),
+                        decoration: BoxDecoration(
+                            border: Border.all(
+                                color: LightModeColors.lightSurfaceVariant),
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            color: LightModeColors.lightSurface),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('POIDS ESTIMÉ',
+                                  style: context.textStyles.labelSmall
+                                      ?.copyWith(
+                                          color: LightModeColors
+                                              .lightOnSurfaceVariant)),
+                              Text(
+                                  '${r.quantityEstimateKg.toStringAsFixed(0)} kg',
+                                  style: context.textStyles.titleSmall
+                                      ?.copyWith(fontWeight: FontWeight.bold))
+                            ]),
                       ),
                     ),
                   ],
@@ -1395,12 +1749,28 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(border: Border.all(color: LightModeColors.lightSurfaceVariant), borderRadius: BorderRadius.circular(AppRadius.md), color: LightModeColors.lightSurface),
+                  decoration: BoxDecoration(
+                      border: Border.all(
+                          color: LightModeColors.lightSurfaceVariant),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      color: LightModeColors.lightSurface),
                   child: Row(
                     children: [
-                      const Icon(Icons.location_on_outlined, color: LightModeColors.lightOnSurfaceVariant),
+                      const Icon(Icons.location_on_outlined,
+                          color: LightModeColors.lightOnSurfaceVariant),
                       const SizedBox(width: 12),
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('ADRESSE DE RAMASSAGE', style: context.textStyles.labelSmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant)), Text(addressLine.isEmpty ? '—' : addressLine, style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold))])),
+                      Expanded(
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                            Text('ADRESSE DE RAMASSAGE',
+                                style: context.textStyles.labelSmall?.copyWith(
+                                    color:
+                                        LightModeColors.lightOnSurfaceVariant)),
+                            Text(addressLine.isEmpty ? '—' : addressLine,
+                                style: context.textStyles.titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.bold))
+                          ])),
                     ],
                   ),
                 ),
@@ -1408,23 +1778,52 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                   const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(border: Border.all(color: LightModeColors.lightSurfaceVariant), borderRadius: BorderRadius.circular(AppRadius.md), color: LightModeColors.lightSurface),
-                    child: Row(children: [const Icon(Icons.sticky_note_2_outlined, color: LightModeColors.lightOnSurfaceVariant), const SizedBox(width: 12), Expanded(child: Text(r.notes!.trim(), style: context.textStyles.bodyMedium))]),
+                    decoration: BoxDecoration(
+                        border: Border.all(
+                            color: LightModeColors.lightSurfaceVariant),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        color: LightModeColors.lightSurface),
+                    child: Row(children: [
+                      const Icon(Icons.sticky_note_2_outlined,
+                          color: LightModeColors.lightOnSurfaceVariant),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: Text(r.notes!.trim(),
+                              style: context.textStyles.bodyMedium))
+                    ]),
                   ),
                 ],
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _busy ? null : () => _run(() => WasteRequestService().acceptMission(requestId), successMessage: 'Mission acceptée.'),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text(_busy ? 'Traitement...' : 'Accepter la mission'), const SizedBox(width: 8), Icon(_busy ? Icons.hourglass_top : Icons.check_circle_outline)]),
+                    onPressed: _busy
+                        ? null
+                        : () => _run(
+                            () =>
+                                WasteRequestService().acceptMission(requestId),
+                            successMessage: 'Mission acceptée.'),
+                    child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(_busy ? 'Traitement...' : 'Accepter la mission'),
+                          const SizedBox(width: 8),
+                          Icon(_busy
+                              ? Icons.hourglass_top
+                              : Icons.check_circle_outline)
+                        ]),
                   ),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: _busy ? null : () => _run(() => WasteRequestService().markCollected(requestId), successMessage: 'Ramassage confirmé.'),
+                    onPressed: _busy
+                        ? null
+                        : () => _run(
+                            () =>
+                                WasteRequestService().markCollected(requestId),
+                            successMessage: 'Ramassage confirmé.'),
                     icon: const Icon(Icons.shopping_bag_outlined),
                     label: const Text('Confirmer le ramassage'),
                   ),
@@ -1433,7 +1832,9 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: _busy ? null : () => _confirmDeliveryWithCenter(requestId),
+                    onPressed: _busy
+                        ? null
+                        : () => _confirmDeliveryWithCenter(requestId),
                     icon: const Icon(Icons.local_shipping_outlined),
                     label: const Text('Confirmer la livraison'),
                   ),

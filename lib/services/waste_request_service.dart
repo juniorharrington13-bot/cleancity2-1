@@ -5,7 +5,8 @@ import 'package:cleancity/models/waste_request.dart';
 import 'package:cleancity/supabase/supabase_config.dart';
 
 class WasteRequestService {
-  WasteRequestService({SupabaseClient? client}) : _client = client ?? SupabaseConfig.client;
+  WasteRequestService({SupabaseClient? client})
+      : _client = client ?? SupabaseConfig.client;
 
   final SupabaseClient _client;
 
@@ -20,7 +21,10 @@ class WasteRequestService {
           .select('*, addresses(*)')
           .eq('generator_id', uid)
           .order('created_at', ascending: false);
-      return (rows as List).map((e) => WasteRequest.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+      return (rows as List)
+          .map(
+              (e) => WasteRequest.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
     } catch (e) {
       debugPrint('WasteRequestService.listForCurrentGenerator failed: $e');
       rethrow;
@@ -35,7 +39,10 @@ class WasteRequestService {
           .eq('status', 'pending')
           .order('created_at', ascending: false)
           .limit(50);
-      return (rows as List).map((e) => WasteRequest.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+      return (rows as List)
+          .map(
+              (e) => WasteRequest.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
     } catch (e) {
       debugPrint('WasteRequestService.listAvailableMissions failed: $e');
       rethrow;
@@ -44,11 +51,50 @@ class WasteRequestService {
 
   Future<WasteRequest?> getById(String id) async {
     try {
-      final row = await _client.from('waste_requests').select('*, addresses(*)').eq('id', id).maybeSingle();
+      final row = await _client
+          .from('waste_requests')
+          .select('*, addresses(*)')
+          .eq('id', id)
+          .maybeSingle();
       if (row == null) return null;
       return WasteRequest.fromJson(Map<String, dynamic>.from(row));
     } catch (e) {
       debugPrint('WasteRequestService.getById failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Collector-safe mission loader.
+  ///
+  /// Some RLS configurations may block direct select on `waste_requests` while
+  /// still allowing access through `pickups` joins. This fallback prevents the
+  /// UI from showing "Mission introuvable" for existing missions.
+  Future<WasteRequest?> getMissionForCollector(String requestId) async {
+    final uid = currentUserId;
+    if (uid == null) return null;
+
+    try {
+      final direct = await getById(requestId);
+      if (direct != null) return direct;
+    } catch (e) {
+      debugPrint(
+          'WasteRequestService.getMissionForCollector direct lookup failed: $e');
+    }
+
+    try {
+      final row = await _client
+          .from('pickups')
+          .select('request_id, collector_id, waste_requests(*, addresses(*))')
+          .eq('request_id', requestId)
+          .eq('collector_id', uid)
+          .maybeSingle();
+      if (row == null) return null;
+      final req = row['waste_requests'];
+      if (req is! Map) return null;
+      return WasteRequest.fromJson(Map<String, dynamic>.from(req));
+    } catch (e) {
+      debugPrint(
+          'WasteRequestService.getMissionForCollector pickup join lookup failed: $e');
       rethrow;
     }
   }
@@ -69,7 +115,9 @@ class WasteRequestService {
     if (uid == null) throw StateError('Not authenticated');
     try {
       String? addressId;
-      if ((city ?? '').trim().isNotEmpty || (neighborhood ?? '').trim().isNotEmpty || (details ?? '').trim().isNotEmpty) {
+      if ((city ?? '').trim().isNotEmpty ||
+          (neighborhood ?? '').trim().isNotEmpty ||
+          (details ?? '').trim().isNotEmpty) {
         addressId = await _insertAddressBestEffort(
           userId: uid,
           city: (city ?? '').trim(),
@@ -113,15 +161,21 @@ class WasteRequestService {
 
     // Try with coordinates first; if the DB doesn't have the columns yet, retry without.
     try {
-      final addr = await _client.from('addresses').insert({
-        ...base,
-        if (latitude != null) 'latitude': latitude,
-        if (longitude != null) 'longitude': longitude,
-      }).select('id').single();
+      final addr = await _client
+          .from('addresses')
+          .insert({
+            ...base,
+            if (latitude != null) 'latitude': latitude,
+            if (longitude != null) 'longitude': longitude,
+          })
+          .select('id')
+          .single();
       return addr['id'] as String;
     } catch (e) {
-      debugPrint('WasteRequestService._insertAddressBestEffort retry without lat/lng: $e');
-      final addr = await _client.from('addresses').insert(base).select('id').single();
+      debugPrint(
+          'WasteRequestService._insertAddressBestEffort retry without lat/lng: $e');
+      final addr =
+          await _client.from('addresses').insert(base).select('id').single();
       return addr['id'] as String;
     }
   }
@@ -142,24 +196,35 @@ class WasteRequestService {
       'quantity_estimate_kg': quantityEstimateKg,
       'notes': notes,
       'status': 'pending',
-      if (scheduledAt != null) 'scheduled_at': scheduledAt.toUtc().toIso8601String(),
-      if (timeSlot != null && timeSlot.trim().isNotEmpty) 'time_slot': timeSlot.trim(),
+      if (scheduledAt != null)
+        'scheduled_at': scheduledAt.toUtc().toIso8601String(),
+      if (timeSlot != null && timeSlot.trim().isNotEmpty)
+        'time_slot': timeSlot.trim(),
     };
 
     try {
-      final row = await _client.from('waste_requests').insert(base).select('*, addresses(*)').single();
+      final row = await _client
+          .from('waste_requests')
+          .insert(base)
+          .select('*, addresses(*)')
+          .single();
       return WasteRequest.fromJson(Map<String, dynamic>.from(row));
     } catch (e) {
       // If the schema doesn't yet contain `time_slot` (or scheduled_at), retry without optional fields.
-      debugPrint('WasteRequestService._insertWasteRequestBestEffort retry without optional fields: $e');
-      final row = await _client.from('waste_requests').insert({
-        'generator_id': generatorId,
-        'address_id': addressId,
-        'waste_type': wasteType,
-        'quantity_estimate_kg': quantityEstimateKg,
-        'notes': notes,
-        'status': 'pending',
-      }).select('*, addresses(*)').single();
+      debugPrint(
+          'WasteRequestService._insertWasteRequestBestEffort retry without optional fields: $e');
+      final row = await _client
+          .from('waste_requests')
+          .insert({
+            'generator_id': generatorId,
+            'address_id': addressId,
+            'waste_type': wasteType,
+            'quantity_estimate_kg': quantityEstimateKg,
+            'notes': notes,
+            'status': 'pending',
+          })
+          .select('*, addresses(*)')
+          .single();
       // We still return a model that contains the values client-side (simulation).
       final wr = WasteRequest.fromJson(Map<String, dynamic>.from(row));
       return wr.copyWith(scheduledAt: scheduledAt, timeSlot: timeSlot);
@@ -186,13 +251,22 @@ class WasteRequestService {
     try {
       // `pickups.request_id` is UNIQUE (one pickup per request).
       // Make the operation idempotent and avoid overriding another collector.
-      final existing = await _client.from('pickups').select('collector_id').eq('request_id', requestId).maybeSingle();
-      final existingCollectorId = existing == null ? null : (existing['collector_id'] as String?);
+      final existing = await _client
+          .from('pickups')
+          .select('collector_id')
+          .eq('request_id', requestId)
+          .maybeSingle();
+      final existingCollectorId =
+          existing == null ? null : (existing['collector_id'] as String?);
 
-      if (existingCollectorId != null && existingCollectorId.trim().isNotEmpty) {
+      if (existingCollectorId != null &&
+          existingCollectorId.trim().isNotEmpty) {
         if (existingCollectorId == uid) {
           // Already accepted by this collector -> treat as success.
-          await _client.from('waste_requests').update({'status': 'accepted', 'updated_at': DateTime.now().toUtc().toIso8601String()}).eq('id', requestId);
+          await _client.from('waste_requests').update({
+            'status': 'accepted',
+            'updated_at': DateTime.now().toUtc().toIso8601String()
+          }).eq('id', requestId);
           return;
         }
         // Accepted by someone else.
@@ -202,19 +276,31 @@ class WasteRequestService {
       // Try inserting; handle race condition if another collector accepted simultaneously.
       final nowIso = DateTime.now().toUtc().toIso8601String();
       try {
-        await _client.from('pickups').insert({'request_id': requestId, 'collector_id': uid, 'accepted_at': nowIso, 'updated_at': nowIso});
+        await _client.from('pickups').insert({
+          'request_id': requestId,
+          'collector_id': uid,
+          'accepted_at': nowIso,
+          'updated_at': nowIso
+        });
       } catch (e) {
         // If the schema doesn't have accepted_at/updated_at yet, retry with minimal columns.
         try {
-          await _client.from('pickups').insert({'request_id': requestId, 'collector_id': uid});
+          await _client
+              .from('pickups')
+              .insert({'request_id': requestId, 'collector_id': uid});
         } catch (_) {
           // In case of unique violation, re-check who accepted.
           // (Handled below.)
         }
         // In case of unique violation, re-check who accepted.
         try {
-          final recheck = await _client.from('pickups').select('collector_id').eq('request_id', requestId).maybeSingle();
-          final cid = recheck == null ? null : (recheck['collector_id'] as String?);
+          final recheck = await _client
+              .from('pickups')
+              .select('collector_id')
+              .eq('request_id', requestId)
+              .maybeSingle();
+          final cid =
+              recheck == null ? null : (recheck['collector_id'] as String?);
           if (cid == uid) {
             // We lost the race but it is still ours -> ok.
           } else if (cid != null && cid.trim().isNotEmpty) {
@@ -227,7 +313,10 @@ class WasteRequestService {
         }
       }
 
-      await _client.from('waste_requests').update({'status': 'accepted', 'updated_at': DateTime.now().toUtc().toIso8601String()}).eq('id', requestId);
+      await _client.from('waste_requests').update({
+        'status': 'accepted',
+        'updated_at': DateTime.now().toUtc().toIso8601String()
+      }).eq('id', requestId);
     } catch (e) {
       debugPrint('WasteRequestService.acceptMission failed: $e');
       rethrow;
@@ -238,8 +327,18 @@ class WasteRequestService {
     final uid = currentUserId;
     if (uid == null) throw StateError('Not authenticated');
     try {
-      await _client.from('pickups').update({'collected_at': DateTime.now().toUtc().toIso8601String(), 'updated_at': DateTime.now().toUtc().toIso8601String()}).eq('request_id', requestId).eq('collector_id', uid);
-      await _client.from('waste_requests').update({'status': 'collected', 'updated_at': DateTime.now().toUtc().toIso8601String()}).eq('id', requestId);
+      await _client
+          .from('pickups')
+          .update({
+            'collected_at': DateTime.now().toUtc().toIso8601String(),
+            'updated_at': DateTime.now().toUtc().toIso8601String()
+          })
+          .eq('request_id', requestId)
+          .eq('collector_id', uid);
+      await _client.from('waste_requests').update({
+        'status': 'collected',
+        'updated_at': DateTime.now().toUtc().toIso8601String()
+      }).eq('id', requestId);
     } catch (e) {
       debugPrint('WasteRequestService.markCollected failed: $e');
       rethrow;
@@ -250,8 +349,18 @@ class WasteRequestService {
     final uid = currentUserId;
     if (uid == null) throw StateError('Not authenticated');
     try {
-      await _client.from('pickups').update({'delivered_at': DateTime.now().toUtc().toIso8601String(), 'updated_at': DateTime.now().toUtc().toIso8601String()}).eq('request_id', requestId).eq('collector_id', uid);
-      await _client.from('waste_requests').update({'status': 'delivered', 'updated_at': DateTime.now().toUtc().toIso8601String()}).eq('id', requestId);
+      await _client
+          .from('pickups')
+          .update({
+            'delivered_at': DateTime.now().toUtc().toIso8601String(),
+            'updated_at': DateTime.now().toUtc().toIso8601String()
+          })
+          .eq('request_id', requestId)
+          .eq('collector_id', uid);
+      await _client.from('waste_requests').update({
+        'status': 'delivered',
+        'updated_at': DateTime.now().toUtc().toIso8601String()
+      }).eq('id', requestId);
     } catch (e) {
       debugPrint('WasteRequestService.markDelivered failed: $e');
       rethrow;
@@ -266,7 +375,8 @@ class WasteRequestService {
   /// Supported schema variants (any subset may exist):
   /// - `pickups.center_id`
   /// - `waste_requests.center_id`
-  Future<void> markDeliveredToCenter({required String requestId, required String centerId}) async {
+  Future<void> markDeliveredToCenter(
+      {required String requestId, required String centerId}) async {
     final uid = currentUserId;
     if (uid == null) throw StateError('Not authenticated');
 
@@ -276,11 +386,16 @@ class WasteRequestService {
     try {
       await _client
           .from('pickups')
-          .update({'delivered_at': nowIso, 'center_id': centerId, 'updated_at': nowIso})
+          .update({
+            'delivered_at': nowIso,
+            'center_id': centerId,
+            'updated_at': nowIso
+          })
           .eq('request_id', requestId)
           .eq('collector_id', uid);
     } catch (e) {
-      debugPrint('WasteRequestService.markDeliveredToCenter pickup update fallback (no center_id?): $e');
+      debugPrint(
+          'WasteRequestService.markDeliveredToCenter pickup update fallback (no center_id?): $e');
       await _client
           .from('pickups')
           .update({'delivered_at': nowIso, 'updated_at': nowIso})
@@ -290,24 +405,38 @@ class WasteRequestService {
 
     // 2) Update request (status delivered + optionally center_id)
     try {
-      await _client.from('waste_requests').update({'status': 'delivered', 'center_id': centerId, 'updated_at': nowIso}).eq('id', requestId);
+      await _client.from('waste_requests').update({
+        'status': 'delivered',
+        'center_id': centerId,
+        'updated_at': nowIso
+      }).eq('id', requestId);
     } catch (e) {
-      debugPrint('WasteRequestService.markDeliveredToCenter waste_requests update fallback (no center_id?): $e');
-      await _client.from('waste_requests').update({'status': 'delivered', 'updated_at': nowIso}).eq('id', requestId);
+      debugPrint(
+          'WasteRequestService.markDeliveredToCenter waste_requests update fallback (no center_id?): $e');
+      await _client.from('waste_requests').update(
+          {'status': 'delivered', 'updated_at': nowIso}).eq('id', requestId);
     }
   }
 
   Future<List<String>> listPhotoUrls(String requestId) async {
     try {
-      final rows = await _client.from('waste_request_photos').select('url').eq('request_id', requestId).order('created_at', ascending: true);
-      return (rows as List).map((e) => (e as Map)['url'] as String).where((e) => e.trim().isNotEmpty).toList();
+      final rows = await _client
+          .from('waste_request_photos')
+          .select('url')
+          .eq('request_id', requestId)
+          .order('created_at', ascending: true);
+      return (rows as List)
+          .map((e) => (e as Map)['url'] as String)
+          .where((e) => e.trim().isNotEmpty)
+          .toList();
     } catch (e) {
       debugPrint('WasteRequestService.listPhotoUrls failed: $e');
       rethrow;
     }
   }
 
-  Future<void> addPhotoUrl({required String requestId, required String url}) async {
+  Future<void> addPhotoUrl(
+      {required String requestId, required String url}) async {
     final uid = currentUserId;
     if (uid == null) throw StateError('Not authenticated');
     try {
@@ -349,8 +478,13 @@ class WasteRequestService {
       if (!accepted) return;
 
       // 2) Find collector for this request (from pickups).
-      final pickup = await _client.from('pickups').select('collector_id').eq('request_id', requestId).maybeSingle();
-      final collectorId = pickup == null ? null : (pickup['collector_id'] as String?);
+      final pickup = await _client
+          .from('pickups')
+          .select('collector_id')
+          .eq('request_id', requestId)
+          .maybeSingle();
+      final collectorId =
+          pickup == null ? null : (pickup['collector_id'] as String?);
       if (collectorId == null || collectorId.trim().isEmpty) return;
 
       // 3) Prevent double payout for same request.
@@ -364,7 +498,11 @@ class WasteRequestService {
       if (existing != null) return;
 
       // 4) Compute payout by waste type.
-      final wr = await _client.from('waste_requests').select('waste_type').eq('id', requestId).maybeSingle();
+      final wr = await _client
+          .from('waste_requests')
+          .select('waste_type')
+          .eq('id', requestId)
+          .maybeSingle();
       final wasteType = (wr?['waste_type'] ?? 'mixed').toString();
 
       // Rates are intentionally simple + configurable later.

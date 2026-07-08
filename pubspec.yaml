@@ -7,16 +7,13 @@ environment:
   sdk: ^3.6.0
 
 dependencies:
-  open_route_service: ^1.0.0
   latlong2: ^0.9.1
-  flutter_map: ^8.0.0
+  mapbox_maps_flutter: ^2.0.0
   onesignal_flutter: ^5.0.0
   http: ^1.0.0
   geolocator: ^14.0.2
   mime: ^2.0.0
   image_picker: '>=1.1.2'
-  google_maps_flutter_web: ^0.6.2+1
-  google_maps_flutter: ^2.0.0
   supabase_flutter: '>=1.10.0'
   flutter:
     sdk: flutter
@@ -37,5 +34,7 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: assets/icons/dreamflow_icon.jpg
+  image_path: "assets/icons/cleancity.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/icons/cleancity.png"
   remove_alpha_ios: true

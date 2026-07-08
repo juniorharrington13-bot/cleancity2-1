@@ -30,7 +30,8 @@ class _ChatThreadsScreenState extends State<ChatThreadsScreen> {
     _future = ChatService().listThreadsForCurrentUser();
   }
 
-  Future<void> _refresh() async => setState(() => _future = ChatService().listThreadsForCurrentUser());
+  Future<void> _refresh() async =>
+      setState(() => _future = ChatService().listThreadsForCurrentUser());
 
   @override
   Widget build(BuildContext context) {
@@ -42,34 +43,47 @@ class _ChatThreadsScreenState extends State<ChatThreadsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Chat', style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              IconButton(onPressed: _refresh, icon: Icon(Icons.refresh, color: LightModeColors.lightPrimary)),
+              Text('Chat',
+                  style: context.textStyles.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+              IconButton(
+                  onPressed: _refresh,
+                  icon:
+                      Icon(Icons.refresh, color: LightModeColors.lightPrimary)),
             ],
           ),
           const SizedBox(height: 12),
           FutureBuilder(
             future: _future,
             builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) return const LinearProgressIndicator();
+              if (snap.connectionState == ConnectionState.waiting)
+                return const LinearProgressIndicator();
               if (snap.hasError) {
                 return _ChatEmptyState(
                   title: 'Chat indisponible',
-                  subtitle: 'Impossible de charger les conversations pour le moment. Réessayez dans quelques instants.',
+                  subtitle:
+                      'Impossible de charger les conversations pour le moment. Réessayez dans quelques instants.',
                 );
               }
               final rows = snap.data ?? const <Map<String, dynamic>>[];
               if (rows.isEmpty) {
-                return const _ChatEmptyState(title: 'Aucune conversation', subtitle: 'Ouvrez une demande puis cliquez sur “Chat”, ou utilisez “Contacter” depuis une fiche.');
+                return const _ChatEmptyState(
+                    title: 'Aucune conversation',
+                    subtitle:
+                        'Ouvrez une demande puis cliquez sur “Chat”, ou utilisez “Contacter” depuis une fiche.');
               }
 
               return Column(
                 children: rows.map((r) {
                   final thread = r['chat_threads'] as Map<String, dynamic>?;
                   final requestId = (thread?['request_id'] ?? '').toString();
-                  final threadCreatedAt = (thread?['created_at'] ?? '').toString();
+                  final threadCreatedAt =
+                      (thread?['created_at'] ?? '').toString();
                   final threadId = (r['thread_id'] ?? '').toString();
 
-                  final title = requestId.trim().isNotEmpty ? 'Demande ${requestId.substring(0, 8).toUpperCase()}' : 'Conversation';
+                  final title = requestId.trim().isNotEmpty
+                      ? 'Demande ${requestId.substring(0, 8).toUpperCase()}'
+                      : 'Conversation';
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
@@ -77,23 +91,44 @@ class _ChatThreadsScreenState extends State<ChatThreadsScreen> {
                       borderRadius: BorderRadius.circular(AppRadius.lg),
                       onTap: () {
                         if (threadId.trim().isEmpty) return;
-                        context.push(ChatRoutes.room, extra: {'threadId': threadId, 'requestId': requestId});
+                        context.push(ChatRoutes.room, extra: {
+                          'threadId': threadId,
+                          'requestId': requestId
+                        });
                       },
                       child: Container(
                         padding: AppSpacing.paddingLg,
-                        decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: LightModeColors.lightSurfaceVariant)),
+                        decoration: BoxDecoration(
+                            color: LightModeColors.lightSurface,
+                            borderRadius: BorderRadius.circular(AppRadius.lg),
+                            border: Border.all(
+                                color: LightModeColors.lightSurfaceVariant)),
                         child: Row(
                           children: [
-                            const CircleAvatar(backgroundColor: LightModeColors.lightPrimaryContainer, child: Icon(Icons.forum_outlined, color: LightModeColors.lightPrimary)),
+                            const CircleAvatar(
+                                backgroundColor:
+                                    LightModeColors.lightPrimaryContainer,
+                                child: Icon(Icons.forum_outlined,
+                                    color: LightModeColors.lightPrimary)),
                             const SizedBox(width: 16),
                             Expanded(
-                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                Text(title, style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-                                const SizedBox(height: 2),
-                                Text(threadCreatedAt, style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
-                              ]),
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(title,
+                                        style: context.textStyles.titleSmall
+                                            ?.copyWith(
+                                                fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 2),
+                                    Text(threadCreatedAt,
+                                        style: context.textStyles.bodySmall
+                                            ?.copyWith(
+                                                color: LightModeColors
+                                                    .lightOnSurfaceVariant)),
+                                  ]),
                             ),
-                            Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface),
+                            Icon(Icons.chevron_right,
+                                color: Theme.of(context).colorScheme.onSurface),
                           ],
                         ),
                       ),
@@ -111,7 +146,8 @@ class _ChatThreadsScreenState extends State<ChatThreadsScreen> {
 }
 
 class ChatRoomScreen extends StatefulWidget {
-  const ChatRoomScreen({super.key, required this.threadId, required this.requestId});
+  const ChatRoomScreen(
+      {super.key, required this.threadId, required this.requestId});
   final String? threadId;
   final String? requestId;
 
@@ -134,7 +170,8 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     if (threadId == null || threadId.trim().isEmpty) return;
     setState(() => _sending = true);
     try {
-      await ChatService().sendMessage(threadId: threadId, body: _controller.text);
+      await ChatService()
+          .sendMessage(threadId: threadId, body: _controller.text);
       _controller.clear();
     } catch (e) {
       debugPrint('Send message failed: $e');
@@ -148,17 +185,21 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   @override
   Widget build(BuildContext context) {
     final threadId = widget.threadId;
-    final title = widget.requestId != null && widget.requestId!.trim().isNotEmpty
-        ? 'Chat • ${widget.requestId!.substring(0, 8).toUpperCase()}'
-        : 'Chat';
+    final title =
+        widget.requestId != null && widget.requestId!.trim().isNotEmpty
+            ? 'Chat • ${widget.requestId!.substring(0, 8).toUpperCase()}'
+            : 'Chat';
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           tooltip: 'Retour',
-          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface),
+          icon: Icon(Icons.arrow_back,
+              color: Theme.of(context).colorScheme.onSurface),
           onPressed: () {
-            if (context.canPop()) context.pop();
-            else context.go(AppRoutes.roleSelection);
+            if (context.canPop())
+              context.pop();
+            else
+              context.go(AppRoutes.roleSelection);
           },
         ),
         title: Text(title),
@@ -167,16 +208,23 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         children: [
           Expanded(
             child: threadId == null
-                ? const _ChatEmptyState(title: 'Conversation introuvable', subtitle: 'Thread ID manquant.')
+                ? const _ChatEmptyState(
+                    title: 'Conversation introuvable',
+                    subtitle: 'Identifiant de conversation manquant.')
                 : StreamBuilder(
                     stream: ChatService().streamMessages(threadId),
                     builder: (context, snap) {
                       if (snap.hasError) {
-                        return const _ChatEmptyState(title: 'Chat indisponible', subtitle: 'Impossible de charger les messages pour le moment.');
+                        return const _ChatEmptyState(
+                            title: 'Chat indisponible',
+                            subtitle:
+                                'Impossible de charger les messages pour le moment.');
                       }
                       final msgs = snap.data ?? const <Map<String, dynamic>>[];
                       if (msgs.isEmpty) {
-                        return const _ChatEmptyState(title: 'Dites bonjour', subtitle: 'Envoyez le premier message.');
+                        return const _ChatEmptyState(
+                            title: 'Dites bonjour',
+                            subtitle: 'Envoyez le premier message.');
                       }
                       final uid = Supabase.instance.client.auth.currentUser?.id;
                       return ListView.builder(
@@ -204,13 +252,20 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                       controller: _controller,
                       minLines: 1,
                       maxLines: 4,
-                      decoration: InputDecoration(hintText: 'Message…', border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppRadius.lg))),
+                      decoration: InputDecoration(
+                          hintText: 'Ecrire un message...',
+                          border: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.lg))),
                     ),
                   ),
                   const SizedBox(width: 12),
                   IconButton(
                     onPressed: _sending ? null : _send,
-                    icon: Icon(Icons.send, color: _sending ? Colors.grey : LightModeColors.lightPrimary),
+                    icon: Icon(Icons.send,
+                        color: _sending
+                            ? Colors.grey
+                            : LightModeColors.lightPrimary),
                   ),
                 ],
               ),
@@ -229,16 +284,24 @@ class _ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = mine ? LightModeColors.lightPrimaryContainer : LightModeColors.lightSurface;
-    final fg = mine ? LightModeColors.lightPrimary : Theme.of(context).colorScheme.onSurface;
+    final bg = mine
+        ? LightModeColors.lightPrimaryContainer
+        : LightModeColors.lightSurface;
+    final fg = mine
+        ? LightModeColors.lightPrimary
+        : Theme.of(context).colorScheme.onSurface;
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         constraints: const BoxConstraints(maxWidth: 420),
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16), border: Border.all(color: LightModeColors.lightSurfaceVariant)),
-        child: Text(body, style: context.textStyles.bodyMedium?.copyWith(color: fg)),
+        decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: LightModeColors.lightSurfaceVariant)),
+        child: Text(body,
+            style: context.textStyles.bodyMedium?.copyWith(color: fg)),
       ),
     );
   }
@@ -257,11 +320,20 @@ class _ChatEmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircleAvatar(backgroundColor: LightModeColors.lightPrimaryContainer, radius: 28, child: Icon(Icons.forum_outlined, color: LightModeColors.lightPrimary, size: 28)),
+            CircleAvatar(
+                backgroundColor: LightModeColors.lightPrimaryContainer,
+                radius: 28,
+                child: Icon(Icons.forum_outlined,
+                    color: LightModeColors.lightPrimary, size: 28)),
             const SizedBox(height: 12),
-            Text(title, style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Text(title,
+                style: context.textStyles.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
-            Text(subtitle, textAlign: TextAlign.center, style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
+            Text(subtitle,
+                textAlign: TextAlign.center,
+                style: context.textStyles.bodySmall
+                    ?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
           ],
         ),
       ),

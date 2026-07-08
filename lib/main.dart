@@ -1,8 +1,10 @@
 import 'package:cleancity/nav.dart';
+import 'package:cleancity/components/app_error_handler.dart';
 import 'package:cleancity/supabase/supabase_config.dart';
 import 'package:cleancity/services/push_notification_service.dart';
 import 'package:cleancity/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
 /// Main entry point for the application
 ///
@@ -12,6 +14,11 @@ import 'package:flutter/material.dart';
 /// - Material 3 theming with light/dark modes
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  ErrorWidget.builder = AppErrorHandler.buildGlobalErrorWidget;
+
+  MapboxOptions.setAccessToken(
+    const String.fromEnvironment('MAPBOX_ACCESS_TOKEN'),
+  );
 
   try {
     await SupabaseConfig.initialize();

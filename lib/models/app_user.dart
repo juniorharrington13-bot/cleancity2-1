@@ -76,3 +76,32 @@ class AppUser {
         avatarUrl: json['avatar_url'] as String?,
       );
 }
+
+extension AppUserUiX on AppUser {
+  String roleLabelFr() {
+    switch (role) {
+      case 'admin':
+        return 'ADMIN';
+      case 'collector':
+        return 'COLLECTEUR';
+      case 'center':
+      case 'processing_center':
+        return 'CENTRE';
+      case 'generator':
+      default:
+        return 'GENERATEUR';
+    }
+  }
+
+  String displayNameCapitalized() {
+    final raw = (fullName ?? '').trim();
+    if (raw.isEmpty) return 'Utilisateur';
+    final words = raw.split(RegExp(r'\s+'));
+    final fixed = words.map((w) {
+      final lower = w.toLowerCase();
+      if (lower.isEmpty) return lower;
+      return '${lower[0].toUpperCase()}${lower.substring(1)}';
+    }).toList(growable: false);
+    return fixed.join(' ');
+  }
+}

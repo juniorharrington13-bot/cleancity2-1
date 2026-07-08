@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:flutter_map/flutter_map.dart' as fm;
 import 'package:latlong2/latlong.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:cleancity/components/app_error_handler.dart';
 import 'package:cleancity/components/app_snackbars.dart';
+import 'package:cleancity/components/cleancity_map_view.dart';
 import 'package:cleancity/components/user_profile_tab.dart';
 import 'package:cleancity/chat/chat_screens.dart';
 import 'package:cleancity/models/waste_request.dart';
@@ -54,7 +55,8 @@ class _GeneratorDashboardState extends State<GeneratorDashboard> {
         automaticallyImplyLeading: false,
         leading: IconButton(
           tooltip: 'Retour',
-          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface),
+          icon: Icon(Icons.arrow_back,
+              color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => _handleBack(context),
         ),
         title: Row(
@@ -67,12 +69,18 @@ class _GeneratorDashboardState extends State<GeneratorDashboard> {
             FutureBuilder(
               future: AppUserService().getCurrentProfile(),
               builder: (context, snap) {
-                final name = (snap.data?.fullName?.trim().isNotEmpty ?? false) ? snap.data!.fullName!.trim() : 'Utilisateur';
+                final name = (snap.data?.fullName?.trim().isNotEmpty ?? false)
+                    ? snap.data!.fullName!.trim()
+                    : 'Utilisateur';
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Bonjour,', style: context.textStyles.labelSmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
-                    Text(name, style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    Text('Bonjour,',
+                        style: context.textStyles.labelSmall?.copyWith(
+                            color: LightModeColors.lightOnSurfaceVariant)),
+                    Text(name,
+                        style: context.textStyles.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold)),
                   ],
                 );
               },
@@ -97,7 +105,9 @@ class _GeneratorDashboardState extends State<GeneratorDashboard> {
       ),
       body: IndexedStack(index: _index, children: pages),
       floatingActionButton: FloatingActionButton(
-        onPressed: _index == 0 || _index == 1 ? () => context.push(AppRoutes.createRequest) : null,
+        onPressed: _index == 0 || _index == 1
+            ? () => context.push(AppRoutes.createRequest)
+            : null,
         backgroundColor: LightModeColors.lightPrimary,
         foregroundColor: LightModeColors.lightOnPrimary,
         child: const Icon(Icons.add),
@@ -107,10 +117,14 @@ class _GeneratorDashboardState extends State<GeneratorDashboard> {
         onTap: (i) => setState(() => _index = i),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
-          BottomNavigationBarItem(icon: Icon(Icons.list_alt), label: 'Demandes'),
-          BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: 'Carte'),
-          BottomNavigationBarItem(icon: Icon(Icons.forum_outlined), label: 'Chat'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profil'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.list_alt), label: 'Demandes'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.map_outlined), label: 'Carte'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.forum_outlined), label: 'Chat'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline), label: 'Profil'),
         ],
       ),
     );
@@ -139,19 +153,29 @@ class _GeneratorHomeTab extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Points Éco cumulés', style: context.textStyles.bodyMedium?.copyWith(color: LightModeColors.lightOnPrimary.withValues(alpha: 0.8))),
+                    Text('Points Éco cumulés',
+                        style: context.textStyles.bodyMedium?.copyWith(
+                            color: LightModeColors.lightOnPrimary
+                                .withValues(alpha: 0.8))),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: LightModeColors.lightOnPrimary.withValues(alpha: 0.2),
+                        color: LightModeColors.lightOnPrimary
+                            .withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(AppRadius.sm),
                       ),
-                      child: Text('+0 pts', style: context.textStyles.labelSmall?.copyWith(color: LightModeColors.lightOnPrimary)),
+                      child: Text('+0 pts',
+                          style: context.textStyles.labelSmall?.copyWith(
+                              color: LightModeColors.lightOnPrimary)),
                     )
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text('—', style: context.textStyles.displayMedium?.copyWith(color: LightModeColors.lightOnPrimary, fontWeight: FontWeight.bold)),
+                Text('—',
+                    style: context.textStyles.displayMedium?.copyWith(
+                        color: LightModeColors.lightOnPrimary,
+                        fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -161,12 +185,23 @@ class _GeneratorHomeTab extends StatelessWidget {
             builder: (context, snap) {
               final data = snap.data ?? const <WasteRequest>[];
               final pending = data.where((e) => e.status == 'pending').length;
-              final done = data.where((e) => e.status == 'delivered' || e.status == 'collected').length;
+              final done = data
+                  .where(
+                      (e) => e.status == 'delivered' || e.status == 'collected')
+                  .length;
               return Row(
                 children: [
-                  Expanded(child: _StatCard(icon: Icons.pending_actions, label: 'En attente', value: '$pending')),
+                  Expanded(
+                      child: _StatCard(
+                          icon: Icons.pending_actions,
+                          label: 'En attente',
+                          value: '$pending')),
                   const SizedBox(width: 16),
-                  Expanded(child: _StatCard(icon: Icons.check_circle_outline, label: 'Terminées', value: '$done')),
+                  Expanded(
+                      child: _StatCard(
+                          icon: Icons.check_circle_outline,
+                          label: 'Terminées',
+                          value: '$done')),
                 ],
               );
             },
@@ -175,8 +210,14 @@ class _GeneratorHomeTab extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Demandes récentes', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-              TextButton(onPressed: () {}, child: Text(' ', style: context.textStyles.labelMedium?.copyWith(color: LightModeColors.lightPrimary))),
+              Text('Demandes récentes',
+                  style: context.textStyles.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+              TextButton(
+                  onPressed: () {},
+                  child: Text(' ',
+                      style: context.textStyles.labelMedium
+                          ?.copyWith(color: LightModeColors.lightPrimary))),
             ],
           ),
           const SizedBox(height: 8),
@@ -184,18 +225,27 @@ class _GeneratorHomeTab extends StatelessWidget {
           const SizedBox(height: 24),
           Container(
             padding: AppSpacing.paddingLg,
-            decoration: BoxDecoration(color: LightModeColors.lightPrimaryContainer, borderRadius: BorderRadius.circular(AppRadius.lg)),
+            decoration: BoxDecoration(
+                color: LightModeColors.lightPrimaryContainer,
+                borderRadius: BorderRadius.circular(AppRadius.lg)),
             child: Row(
               children: [
-                Icon(Icons.lightbulb_outline, color: LightModeColors.lightPrimary, size: 32),
+                Icon(Icons.lightbulb_outline,
+                    color: LightModeColors.lightPrimary, size: 32),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Conseil Éco du jour', style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold, color: LightModeColors.lightPrimary)),
+                      Text('Conseil Éco du jour',
+                          style: context.textStyles.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: LightModeColors.lightPrimary)),
                       const SizedBox(height: 4),
-                      Text('Séparez vos déchets (plastique/papier/verre) pour gagner plus de points.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnPrimaryContainer)),
+                      Text(
+                          'Séparez vos déchets (plastique/papier/verre) pour gagner plus de points.',
+                          style: context.textStyles.bodySmall?.copyWith(
+                              color: LightModeColors.lightOnPrimaryContainer)),
                     ],
                   ),
                 )
@@ -231,18 +281,24 @@ class _RecentRequestsPreviewState extends State<_RecentRequestsPreview> {
       future: _future,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Padding(padding: EdgeInsets.all(12), child: LinearProgressIndicator());
+          return const Padding(
+              padding: EdgeInsets.all(12), child: LinearProgressIndicator());
         }
         final items = (snap.data ?? const <WasteRequest>[]).take(3).toList();
         if (items.isEmpty) {
           return _EmptyStateCard(
             icon: Icons.inbox_outlined,
             title: 'Aucune demande pour le moment',
-            subtitle: 'Créez votre première demande de collecte en appuyant sur +.',
+            subtitle:
+                'Créez votre première demande de collecte en appuyant sur +.',
           );
         }
         return Column(
-          children: items.map((r) => Padding(padding: const EdgeInsets.only(bottom: 12), child: _RequestListTile(request: r))).toList(),
+          children: items
+              .map((r) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _RequestListTile(request: r)))
+              .toList(),
         );
       },
     );
@@ -279,8 +335,13 @@ class _GeneratorRequestsTabState extends State<_GeneratorRequestsTab> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Mes demandes', style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              IconButton(onPressed: _refresh, icon: Icon(Icons.refresh, color: LightModeColors.lightPrimary)),
+              Text('Mes demandes',
+                  style: context.textStyles.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+              IconButton(
+                  onPressed: _refresh,
+                  icon:
+                      Icon(Icons.refresh, color: LightModeColors.lightPrimary)),
             ],
           ),
           const SizedBox(height: 12),
@@ -288,7 +349,9 @@ class _GeneratorRequestsTabState extends State<_GeneratorRequestsTab> {
             future: _future,
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
-                return const Padding(padding: EdgeInsets.all(12), child: LinearProgressIndicator());
+                return const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: LinearProgressIndicator());
               }
               final items = snap.data ?? const <WasteRequest>[];
               if (items.isEmpty) {
@@ -298,7 +361,12 @@ class _GeneratorRequestsTabState extends State<_GeneratorRequestsTab> {
                   subtitle: 'Appuyez sur + pour créer une demande.',
                 );
               }
-              return Column(children: items.map((r) => Padding(padding: const EdgeInsets.only(bottom: 12), child: _RequestListTile(request: r))).toList());
+              return Column(
+                  children: items
+                      .map((r) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _RequestListTile(request: r)))
+                      .toList());
             },
           ),
           const SizedBox(height: 80),
@@ -320,8 +388,9 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
 
   final _searchCtrl = TextEditingController();
   final _maps = MapsService();
-  final fm.MapController _mapCtrl = fm.MapController();
 
+  LatLng _center = _douala;
+  double _zoom = 12;
   LatLng? _myLocation;
   LatLng? _destination;
   String? _destinationLabel;
@@ -345,27 +414,35 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
       final enabled = await Geolocator.isLocationServiceEnabled();
       if (!enabled) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Activez la localisation (GPS) pour utiliser la carte.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content:
+                Text('Activez la localisation (GPS) pour utiliser la carte.')));
         return;
       }
 
       var perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) perm = await Geolocator.requestPermission();
-      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+      if (perm == LocationPermission.denied)
+        perm = await Geolocator.requestPermission();
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Autorisation localisation refusée.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Autorisation localisation refusée.')));
         return;
       }
 
-      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      final pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
       final here = LatLng(pos.latitude, pos.longitude);
       _myLocation = here;
-      _mapCtrl.move(here, 14);
+      _center = here;
+      _zoom = 14;
       if (mounted) setState(() {});
     } catch (e) {
       debugPrint('Map locate failed: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Localisation échouée: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Localisation échouée: $e')));
     } finally {
       if (mounted) setState(() => _locating = false);
     }
@@ -396,11 +473,15 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
     final latLng = await _maps.geocodePlaceId(s.placeId);
     if (!mounted) return;
     if (latLng == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Adresse introuvable.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Adresse introuvable.')));
       return;
     }
-    setState(() => _destination = latLng);
-    _mapCtrl.move(latLng, 14);
+    setState(() {
+      _destination = latLng;
+      _center = latLng;
+      _zoom = 14;
+    });
 
     // Try routing if we have origin.
     if (_myLocation != null) {
@@ -415,7 +496,9 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
     if (_routing) return;
     if (!_maps.isRoutingConfigured) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Clé OpenRouteService manquante: impossible de calculer l’itinéraire.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Token Mapbox manquant: impossible de calculer l’itinéraire.')));
       return;
     }
     setState(() => _routing = true);
@@ -423,22 +506,22 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
       final dir = await _maps.directions(origin: origin, destination: dest);
       if (!mounted) return;
       if (dir == null || dir.polylinePoints.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Itinéraire indisponible.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Itinéraire indisponible.')));
         return;
       }
       setState(() {
         _route = dir.polylinePoints;
         _routeDistanceMeters = dir.distanceMeters;
         _routeDurationSec = dir.durationSec;
+        _center = LatLng((origin.latitude + dest.latitude) / 2, (origin.longitude + dest.longitude) / 2);
+        _zoom = 12;
       });
-
-      // Fit bounds.
-      final bounds = fm.LatLngBounds.fromPoints([origin, dest, ...dir.polylinePoints.take(10)]);
-      _mapCtrl.fitCamera(fm.CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(48)));
     } catch (e) {
       debugPrint('Route build failed: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur itinéraire: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Erreur itinéraire: $e')));
     } finally {
       if (mounted) setState(() => _routing = false);
     }
@@ -462,11 +545,16 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
     return ListView(
       padding: AppSpacing.paddingLg,
       children: [
-        Text('Carte', style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+        Text('Carte',
+            style: context.textStyles.titleLarge
+                ?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
         Container(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: LightModeColors.lightSurfaceVariant)),
+          decoration: BoxDecoration(
+              color: LightModeColors.lightSurface,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              border: Border.all(color: LightModeColors.lightSurfaceVariant)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -478,7 +566,8 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
                       onChanged: _updateSuggestions,
                       decoration: InputDecoration(
                         hintText: 'Rechercher une adresse (Douala, Yaoundé...)',
-                        prefixIcon: Icon(Icons.search, color: LightModeColors.lightPrimary),
+                        prefixIcon: Icon(Icons.search,
+                            color: LightModeColors.lightPrimary),
                         suffixIcon: _searchCtrl.text.trim().isEmpty
                             ? null
                             : IconButton(
@@ -500,7 +589,12 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
                   const SizedBox(width: 12),
                   FilledButton.tonalIcon(
                     onPressed: _locating ? null : _ensureLocationAndCenter,
-                    icon: _locating ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.my_location),
+                    icon: _locating
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.my_location),
                     label: const Text('Moi'),
                   ),
                 ],
@@ -510,21 +604,27 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
                   padding: const EdgeInsets.only(top: 10),
                   child: Text(
                     'Itinéraire: définis OPEN_ROUTE_SERVICE_API_KEY (clé gratuite OpenRouteService). La recherche & l\'affichage OSM restent disponibles sans clé.',
-                    style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant),
+                    style: context.textStyles.bodySmall?.copyWith(
+                        color: LightModeColors.lightOnSurfaceVariant),
                   ),
                 ),
               if (_suggestions.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Container(
-                    decoration: BoxDecoration(color: LightModeColors.lightSurfaceVariant.withValues(alpha: 0.35), borderRadius: BorderRadius.circular(AppRadius.md)),
+                    decoration: BoxDecoration(
+                        color: LightModeColors.lightSurfaceVariant
+                            .withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(AppRadius.md)),
                     child: Column(
                       children: _suggestions
                           .map(
                             (s) => ListTile(
                               dense: true,
-                              leading: Icon(Icons.place_outlined, color: LightModeColors.lightPrimary),
-                              title: Text(s.description, maxLines: 2, overflow: TextOverflow.ellipsis),
+                              leading: Icon(Icons.place_outlined,
+                                  color: LightModeColors.lightPrimary),
+                              title: Text(s.description,
+                                  maxLines: 2, overflow: TextOverflow.ellipsis),
                               onTap: () => _selectSuggestion(s),
                             ),
                           )
@@ -541,17 +641,27 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
                     children: [
                       if (_myLocation != null)
                         Chip(
-                          avatar: Icon(Icons.person_pin_circle, color: LightModeColors.lightPrimary),
+                          avatar: Icon(Icons.person_pin_circle,
+                              color: LightModeColors.lightPrimary),
                           label: const Text('Ma position'),
                         ),
                       if (_destinationLabel != null)
                         Chip(
-                          avatar: Icon(Icons.flag_outlined, color: LightModeColors.lightSecondary),
-                          label: Text(_destinationLabel!, overflow: TextOverflow.ellipsis),
+                          avatar: Icon(Icons.flag_outlined,
+                              color: LightModeColors.lightSecondary),
+                          label: Text(_destinationLabel!,
+                              overflow: TextOverflow.ellipsis),
                         ),
                       if (_myLocation != null && _destination != null)
                         ActionChip(
-                          avatar: _routing ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)) : Icon(Icons.alt_route, color: LightModeColors.lightPrimary),
+                          avatar: _routing
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2))
+                              : Icon(Icons.alt_route,
+                                  color: LightModeColors.lightPrimary),
                           label: Text(_routing ? 'Calcul...' : 'Itinéraire'),
                           onPressed: _routing ? null : _buildRoute,
                         ),
@@ -566,15 +676,23 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
                       Expanded(
                         child: Container(
                           padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(color: LightModeColors.lightPrimaryContainer.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(AppRadius.md)),
+                          decoration: BoxDecoration(
+                              color: LightModeColors.lightPrimaryContainer
+                                  .withValues(alpha: 0.45),
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.md)),
                           child: Row(
                             children: [
-                              Icon(Icons.straighten, color: LightModeColors.lightPrimary),
+                              Icon(Icons.straighten,
+                                  color: LightModeColors.lightPrimary),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  _routeDistanceMeters == null ? '—' : _formatDistance(_routeDistanceMeters!),
-                                  style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                                  _routeDistanceMeters == null
+                                      ? '—'
+                                      : _formatDistance(_routeDistanceMeters!),
+                                  style: context.textStyles.titleSmall
+                                      ?.copyWith(fontWeight: FontWeight.bold),
                                 ),
                               ),
                             ],
@@ -585,15 +703,23 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
                       Expanded(
                         child: Container(
                           padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(color: LightModeColors.lightSurfaceVariant.withValues(alpha: 0.35), borderRadius: BorderRadius.circular(AppRadius.md)),
+                          decoration: BoxDecoration(
+                              color: LightModeColors.lightSurfaceVariant
+                                  .withValues(alpha: 0.35),
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.md)),
                           child: Row(
                             children: [
-                              Icon(Icons.schedule, color: LightModeColors.lightSecondary),
+                              Icon(Icons.schedule,
+                                  color: LightModeColors.lightSecondary),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  _routeDurationSec == null ? '—' : _formatDuration(_routeDurationSec!),
-                                  style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                                  _routeDurationSec == null
+                                      ? '—'
+                                      : _formatDuration(_routeDurationSec!),
+                                  style: context.textStyles.titleSmall
+                                      ?.copyWith(fontWeight: FontWeight.bold),
                                 ),
                               ),
                             ],
@@ -615,144 +741,132 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
             final dest = _destination;
             final route = _route;
 
-            final mapMarkers = <fm.Marker>[];
+            final mapMarkers = <MapPin>[];
             for (final r in items) {
               final addr = r.address;
               if (addr == null) continue;
               final latRaw = addr['latitude'];
               final lngRaw = addr['longitude'];
               if (latRaw is! num || lngRaw is! num) continue;
-              final pt = LatLng(latRaw.toDouble(), lngRaw.toDouble());
-              mapMarkers.add(
-                fm.Marker(
-                  point: pt,
-                  width: 44,
-                  height: 44,
-                  child: GestureDetector(
-                    onTap: () => context.push(AppRoutes.requestDetails, extra: r.id),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: LightModeColors.lightSurface,
-                        borderRadius: BorderRadius.circular(AppRadius.max),
-                        border: Border.all(color: LightModeColors.lightPrimaryContainer),
-                      ),
-                      child: Icon(Icons.delete_outline, color: LightModeColors.lightPrimary),
-                    ),
-                  ),
-                ),
-              );
+              mapMarkers.add(MapPin(
+                point: LatLng(latRaw.toDouble(), lngRaw.toDouble()),
+                color: LightModeColors.lightPrimary,
+              ));
             }
-
             if (myLoc != null) {
-              mapMarkers.add(
-                fm.Marker(
-                  point: myLoc,
-                  width: 46,
-                  height: 46,
-                  child: Container(
-                    decoration: BoxDecoration(color: LightModeColors.lightPrimaryContainer, borderRadius: BorderRadius.circular(AppRadius.max), border: Border.all(color: LightModeColors.lightPrimary)),
-                    child: Icon(Icons.person_pin_circle, color: LightModeColors.lightPrimary),
-                  ),
-                ),
-              );
+              mapMarkers.add(MapPin(point: myLoc, color: LightModeColors.lightPrimaryContainer, radius: 9));
             }
             if (dest != null) {
-              mapMarkers.add(
-                fm.Marker(
-                  point: dest,
-                  width: 46,
-                  height: 46,
-                  child: Container(
-                    decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.max), border: Border.all(color: LightModeColors.lightSecondary)),
-                    child: Icon(Icons.flag, color: LightModeColors.lightSecondary),
-                  ),
-                ),
-              );
+              mapMarkers.add(MapPin(point: dest, color: LightModeColors.lightSecondary, radius: 9));
             }
 
             return ClipRRect(
               borderRadius: BorderRadius.circular(AppRadius.lg),
               child: SizedBox(
                 height: 240,
-                child: fm.FlutterMap(
-                  mapController: _mapCtrl,
-                  options: fm.MapOptions(
-                    initialCenter: _douala,
-                    initialZoom: 12,
-                    interactionOptions: const fm.InteractionOptions(flags: fm.InteractiveFlag.all & ~fm.InteractiveFlag.rotate),
-                  ),
-                  children: [
-                    fm.TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'cleancity',
-                      tileProvider: fm.NetworkTileProvider(headers: const {'User-Agent': MapsService.nominatimUserAgent}),
-                    ),
-                    if (route.isNotEmpty)
-                      fm.PolylineLayer(
-                        polylines: [
-                          fm.Polyline(points: route, strokeWidth: 4.5, color: LightModeColors.lightPrimary),
-                        ],
-                      ),
-                    if (mapMarkers.isNotEmpty) fm.MarkerLayer(markers: mapMarkers),
-                  ],
+                child: CleanCityMapView(
+                  center: _center,
+                  zoom: _zoom,
+                  markers: mapMarkers,
+                  route: route,
+                  onTap: (p) {
+                    for (final r in items) {
+                      final addr = r.address;
+                      final latRaw = addr?['latitude'];
+                      final lngRaw = addr?['longitude'];
+                      if (latRaw is! num || lngRaw is! num) continue;
+                      final d = const Distance().as(LengthUnit.Meter, p, LatLng(latRaw.toDouble(), lngRaw.toDouble()));
+                      if (d < 250) {
+                        context.push(AppRoutes.requestDetails, extra: r.id);
+                        return;
+                      }
+                    }
+                  },
                 ),
               ),
             );
           },
         ),
         const SizedBox(height: 10),
-        Text('Pins affichés si addresses.latitude/longitude sont remplis. Astuce: active “Moi” puis sélectionne une destination pour l’itinéraire.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
+        Text(
+            'Pins affichés si addresses.latitude/longitude sont remplis. Astuce: active “Moi” puis sélectionne une destination pour l’itinéraire.',
+            style: context.textStyles.bodySmall
+                ?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
         const SizedBox(height: 16),
         FutureBuilder(
           future: WasteRequestService().listForCurrentGenerator(),
           builder: (context, snap) {
             final items = snap.data ?? const <WasteRequest>[];
             if (items.isEmpty) {
-              return _EmptyStateCard(icon: Icons.place_outlined, title: 'Aucun point à afficher', subtitle: 'Créez une demande avec une adresse pour la voir ici.');
+              return _EmptyStateCard(
+                  icon: Icons.place_outlined,
+                  title: 'Aucun point à afficher',
+                  subtitle:
+                      'Créez une demande avec une adresse pour la voir ici.');
             }
             return Column(
-              children: items
-                  .where((e) => e.address != null)
-                  .take(10)
-                  .map((r) {
-                    final addr = r.address!;
-                    final city = (addr['city'] ?? '') as String;
-                    final hood = (addr['neighborhood'] ?? '') as String;
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
-                      tileColor: LightModeColors.lightSurface,
-                      leading: const CircleAvatar(backgroundColor: LightModeColors.lightPrimaryContainer, child: Icon(Icons.place, color: LightModeColors.lightPrimary)),
-                      title: Text([hood, city].where((s) => s.trim().isNotEmpty).join(' • ').trim().isEmpty ? 'Adresse' : [hood, city].where((s) => s.trim().isNotEmpty).join(' • ')),
-                      subtitle: Text('Statut: ${r.status} • ${r.quantityEstimateKg.toStringAsFixed(0)} kg', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
-                      trailing: IconButton(
-                        tooltip: 'Itinéraire',
-                        onPressed: () async {
-                          final addr = r.address;
-                          if (addr == null) return;
-                          final latRaw = addr['latitude'];
-                          final lngRaw = addr['longitude'];
-                          if (latRaw is! num || lngRaw is! num) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Coordonnées manquantes pour cette adresse.')));
-                            return;
-                          }
-                          setState(() {
-                            _destination = LatLng(latRaw.toDouble(), lngRaw.toDouble());
-                            _destinationLabel = [hood, city].where((s) => s.trim().isNotEmpty).join(' • ');
-                            _route = const [];
-                            _routeDistanceMeters = null;
-                            _routeDurationSec = null;
-                          });
-                          _mapCtrl.move(_destination!, 14);
-                          if (_myLocation == null) await _ensureLocationAndCenter();
-                          await _buildRoute();
-                        },
-                        icon: Icon(Icons.alt_route, color: LightModeColors.lightPrimary),
-                      ),
-                      onTap: () => context.push(AppRoutes.requestDetails, extra: r.id),
-                    );
-                  })
-                  .toList(),
+              children: items.where((e) => e.address != null).take(10).map((r) {
+                final addr = r.address!;
+                final city = (addr['city'] ?? '') as String;
+                final hood = (addr['neighborhood'] ?? '') as String;
+                return ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md)),
+                  tileColor: LightModeColors.lightSurface,
+                  leading: const CircleAvatar(
+                      backgroundColor: LightModeColors.lightPrimaryContainer,
+                      child: Icon(Icons.place,
+                          color: LightModeColors.lightPrimary)),
+                  title: Text([hood, city]
+                          .where((s) => s.trim().isNotEmpty)
+                          .join(' • ')
+                          .trim()
+                          .isEmpty
+                      ? 'Adresse'
+                      : [hood, city]
+                          .where((s) => s.trim().isNotEmpty)
+                          .join(' • ')),
+                  subtitle: Text(
+                      'Statut: ${r.status} • ${r.quantityEstimateKg.toStringAsFixed(0)} kg',
+                      style: context.textStyles.bodySmall?.copyWith(
+                          color: LightModeColors.lightOnSurfaceVariant)),
+                  trailing: IconButton(
+                    tooltip: 'Itinéraire',
+                    onPressed: () async {
+                      final addr = r.address;
+                      if (addr == null) return;
+                      final latRaw = addr['latitude'];
+                      final lngRaw = addr['longitude'];
+                      if (latRaw is! num || lngRaw is! num) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text(
+                                'Coordonnées manquantes pour cette adresse.')));
+                        return;
+                      }
+                      setState(() {
+                        _destination =
+                            LatLng(latRaw.toDouble(), lngRaw.toDouble());
+                        _center = _destination!;
+                        _zoom = 14;
+                        _destinationLabel = [hood, city]
+                            .where((s) => s.trim().isNotEmpty)
+                            .join(' • ');
+                        _route = const [];
+                        _routeDistanceMeters = null;
+                        _routeDurationSec = null;
+                      });
+                      if (_myLocation == null) await _ensureLocationAndCenter();
+                      await _buildRoute();
+                    },
+                    icon: Icon(Icons.alt_route,
+                        color: LightModeColors.lightPrimary),
+                  ),
+                  onTap: () =>
+                      context.push(AppRoutes.requestDetails, extra: r.id),
+                );
+              }).toList(),
             );
           },
         ),
@@ -762,7 +876,8 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard({required this.icon, required this.label, required this.value});
+  const _StatCard(
+      {required this.icon, required this.label, required this.value});
   final IconData icon;
   final String label;
   final String value;
@@ -781,9 +896,13 @@ class _StatCard extends StatelessWidget {
         children: [
           Icon(icon, color: LightModeColors.lightPrimary, size: 24),
           const SizedBox(height: 12),
-          Text(label, style: context.textStyles.labelMedium?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
+          Text(label,
+              style: context.textStyles.labelMedium
+                  ?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
           const SizedBox(height: 4),
-          Text(value, style: context.textStyles.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(value,
+              style: context.textStyles.headlineMedium
+                  ?.copyWith(fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -798,7 +917,9 @@ class _RequestListTile extends StatelessWidget {
     final d = request.scheduledAt;
     final slot = (request.timeSlot ?? '').trim();
     if (d == null && slot.isEmpty) return '';
-    final dateStr = d == null ? '' : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+    final dateStr = d == null
+        ? ''
+        : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
     if (dateStr.isEmpty) return slot;
     if (slot.isEmpty) return dateStr;
     return '$dateStr • $slot';
@@ -827,7 +948,10 @@ class _RequestListTile extends StatelessWidget {
     final addr = request.address;
     final title = addr == null
         ? 'Demande #${request.id.substring(0, 6)}'
-        : [addr['neighborhood'], addr['city']].whereType<String>().where((s) => s.trim().isNotEmpty).join(' • ');
+        : [addr['neighborhood'], addr['city']]
+            .whereType<String>()
+            .where((s) => s.trim().isNotEmpty)
+            .join(' • ');
 
     final schedule = _formatSchedule();
 
@@ -836,35 +960,48 @@ class _RequestListTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppRadius.md),
       child: Container(
         padding: AppSpacing.paddingMd,
-        decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.md), border: Border.all(color: LightModeColors.lightSurfaceVariant)),
+        decoration: BoxDecoration(
+            color: LightModeColors.lightSurface,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: Border.all(color: LightModeColors.lightSurfaceVariant)),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: LightModeColors.lightPrimaryContainer, borderRadius: BorderRadius.circular(AppRadius.sm)),
-              child: Icon(Icons.recycling, color: LightModeColors.lightPrimary, size: 20),
+              decoration: BoxDecoration(
+                  color: LightModeColors.lightPrimaryContainer,
+                  borderRadius: BorderRadius.circular(AppRadius.sm)),
+              child: Icon(Icons.recycling,
+                  color: LightModeColors.lightPrimary, size: 20),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title.isEmpty ? 'Demande' : title, style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(title.isEmpty ? 'Demande' : title,
+                      style: context.textStyles.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 2),
                   Text(
                     [
                       '${request.wasteType} • ${request.quantityEstimateKg.toStringAsFixed(0)} kg',
                       if (schedule.isNotEmpty) '⏱ $schedule',
                     ].join('  •  '),
-                    style: context.textStyles.labelSmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant),
+                    style: context.textStyles.labelSmall?.copyWith(
+                        color: LightModeColors.lightOnSurfaceVariant),
                   ),
                 ],
               ),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(AppRadius.sm)),
-              child: Text(request.status.toUpperCase(), style: context.textStyles.labelSmall?.copyWith(color: color, fontWeight: FontWeight.bold)),
+              decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppRadius.sm)),
+              child: Text(request.status.toUpperCase(),
+                  style: context.textStyles.labelSmall
+                      ?.copyWith(color: color, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -874,7 +1011,8 @@ class _RequestListTile extends StatelessWidget {
 }
 
 class _EmptyStateCard extends StatelessWidget {
-  const _EmptyStateCard({required this.icon, required this.title, required this.subtitle});
+  const _EmptyStateCard(
+      {required this.icon, required this.title, required this.subtitle});
   final IconData icon;
   final String title;
   final String subtitle;
@@ -883,18 +1021,27 @@ class _EmptyStateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: AppSpacing.paddingLg,
-      decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: LightModeColors.lightSurfaceVariant)),
+      decoration: BoxDecoration(
+          color: LightModeColors.lightSurface,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(color: LightModeColors.lightSurfaceVariant)),
       child: Row(
         children: [
-          CircleAvatar(backgroundColor: LightModeColors.lightPrimaryContainer, child: Icon(icon, color: LightModeColors.lightPrimary)),
+          CircleAvatar(
+              backgroundColor: LightModeColors.lightPrimaryContainer,
+              child: Icon(icon, color: LightModeColors.lightPrimary)),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                Text(title,
+                    style: context.textStyles.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text(subtitle, style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
+                Text(subtitle,
+                    style: context.textStyles.bodySmall?.copyWith(
+                        color: LightModeColors.lightOnSurfaceVariant)),
               ],
             ),
           )
@@ -903,7 +1050,6 @@ class _EmptyStateCard extends StatelessWidget {
     );
   }
 }
-
 
 // --- CREATE REQUEST SCREEN ---
 class CreateRequestScreen extends StatefulWidget {
@@ -942,7 +1088,8 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
   Future<void> _pickPhotos() async {
     final picker = ImagePicker();
     try {
-      final picked = await picker.pickMultiImage(imageQuality: 85, maxWidth: 1600);
+      final picked =
+          await picker.pickMultiImage(imageQuality: 85, maxWidth: 1600);
       if (!mounted) return;
       if (picked.isEmpty) return;
       setState(() => _photos.addAll(picked));
@@ -956,7 +1103,8 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
   Future<void> _takePhoto() async {
     final picker = ImagePicker();
     try {
-      final picked = await picker.pickImage(source: ImageSource.camera, imageQuality: 85, maxWidth: 1600);
+      final picked = await picker.pickImage(
+          source: ImageSource.camera, imageQuality: 85, maxWidth: 1600);
       if (picked == null) return;
       if (!mounted) return;
       setState(() => _photos.add(picked));
@@ -969,9 +1117,18 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
 
   Future<void> _publish() async {
     if (_publishing) return;
+    if (_latitude == null || _longitude == null) {
+      AppSnackbars.warning(
+        context,
+        'La position GPS est obligatoire pour publier. Appuyez sur "Moi" pour capturer votre position.',
+      );
+      return;
+    }
     setState(() => _publishing = true);
     try {
-      final scheduledAt = _scheduledDate == null ? null : _combineDateAndSlot(_scheduledDate!, _timeSlot);
+      final scheduledAt = _scheduledDate == null
+          ? null
+          : _combineDateAndSlot(_scheduledDate!, _timeSlot);
       final req = await WasteRequestService().create(
         wasteType: _wasteTypeToDb(_selectedType),
         quantityEstimateKg: _weight,
@@ -979,8 +1136,11 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
         scheduledAt: scheduledAt,
         timeSlot: _timeSlot,
         city: _cityCtrl.text.trim().isEmpty ? null : _cityCtrl.text.trim(),
-        neighborhood: _neighborhoodCtrl.text.trim().isEmpty ? null : _neighborhoodCtrl.text.trim(),
-        details: _detailsCtrl.text.trim().isEmpty ? null : _detailsCtrl.text.trim(),
+        neighborhood: _neighborhoodCtrl.text.trim().isEmpty
+            ? null
+            : _neighborhoodCtrl.text.trim(),
+        details:
+            _detailsCtrl.text.trim().isEmpty ? null : _detailsCtrl.text.trim(),
         latitude: _latitude,
         longitude: _longitude,
       );
@@ -989,7 +1149,8 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
         final uploader = MediaUploadService();
         final service = WasteRequestService();
         for (final p in _photos) {
-          final url = await uploader.uploadWasteRequestPhoto(requestId: req.id, file: p);
+          final url = await uploader.uploadWasteRequestPhoto(
+              requestId: req.id, file: p);
           await service.addPhotoUrl(requestId: req.id, url: url);
         }
       }
@@ -1000,15 +1161,15 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
     } on StorageException catch (e) {
       debugPrint('Publish request upload failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, 'Upload échoué (Storage). Vérifiez buckets/policies.');
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
     } on MediaUploadException catch (e) {
       debugPrint('Publish request upload blocked: $e');
       if (!mounted) return;
-      AppSnackbars.warning(context, e.userMessage);
+      AppSnackbars.warning(context, AppErrorHandler.toUserMessage(e));
     } catch (e) {
       debugPrint('Publish request failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, 'Publication échouée.');
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
     } finally {
       if (mounted) setState(() => _publishing = false);
     }
@@ -1042,14 +1203,18 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
     setState(() => _locating = true);
     try {
       var perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) perm = await Geolocator.requestPermission();
-      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+      if (perm == LocationPermission.denied)
+        perm = await Geolocator.requestPermission();
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Permission localisation refusée.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Permission localisation refusée.')));
         return;
       }
 
-      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      final pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
       if (!mounted) return;
       setState(() {
         _latitude = pos.latitude;
@@ -1058,7 +1223,8 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
     } catch (e) {
       debugPrint('Use my location failed: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Localisation impossible: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Localisation impossible: $e')));
     } finally {
       if (mounted) setState(() => _locating = false);
     }
@@ -1085,13 +1251,15 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Création d\'une demande', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: const Text('Création d\'une demande',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: Chip(
-              label: const Text('CLEANCITY CMR', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+              label: const Text('CLEANCITY CMR',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
               backgroundColor: LightModeColors.lightPrimary,
               labelStyle: const TextStyle(color: Colors.white),
               padding: EdgeInsets.zero,
@@ -1118,7 +1286,6 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
               ],
             ),
             const SizedBox(height: 32),
-
             _buildSectionTitle('2', 'Quantité estimée'),
             const SizedBox(height: 24),
             Row(
@@ -1136,88 +1303,136 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                 const Text('Lourd'),
               ],
             ),
-            Center(child: Text('${_weight.toInt()} kg', style: context.textStyles.headlineMedium?.copyWith(color: LightModeColors.lightPrimary, fontWeight: FontWeight.bold))),
+            Center(
+                child: Text('${_weight.toInt()} kg',
+                    style: context.textStyles.headlineMedium?.copyWith(
+                        color: LightModeColors.lightPrimary,
+                        fontWeight: FontWeight.bold))),
             const SizedBox(height: 32),
-
             _buildSectionTitle('3', 'Date & créneau'),
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.md), border: Border.all(color: LightModeColors.lightSurfaceVariant)),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Expanded(
-                    child: Text(
-                      _scheduledDate == null ? 'Choisir une date' : '${_scheduledDate!.day.toString().padLeft(2, '0')}/${_scheduledDate!.month.toString().padLeft(2, '0')}/${_scheduledDate!.year}',
-                      style: context.textStyles.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+              decoration: BoxDecoration(
+                  color: LightModeColors.lightSurface,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border:
+                      Border.all(color: LightModeColors.lightSurfaceVariant)),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Expanded(
+                        child: Text(
+                          _scheduledDate == null
+                              ? 'Choisir une date'
+                              : '${_scheduledDate!.day.toString().padLeft(2, '0')}/${_scheduledDate!.month.toString().padLeft(2, '0')}/${_scheduledDate!.year}',
+                          style: context.textStyles.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      TextButton.icon(
+                          onPressed: _pickDate,
+                          icon: const Icon(Icons.date_range),
+                          label: const Text('Date')),
+                    ]),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      value: _timeSlot,
+                      decoration: const InputDecoration(
+                          labelText: 'Créneau (optionnel)'),
+                      items: const [
+                        DropdownMenuItem(
+                            value: '08:00-10:00', child: Text('08:00 – 10:00')),
+                        DropdownMenuItem(
+                            value: '10:00-12:00', child: Text('10:00 – 12:00')),
+                        DropdownMenuItem(
+                            value: '12:00-14:00', child: Text('12:00 – 14:00')),
+                        DropdownMenuItem(
+                            value: '14:00-16:00', child: Text('14:00 – 16:00')),
+                        DropdownMenuItem(
+                            value: '16:00-18:00', child: Text('16:00 – 18:00')),
+                      ],
+                      onChanged: (v) => setState(() => _timeSlot = v),
                     ),
-                  ),
-                  TextButton.icon(onPressed: _pickDate, icon: const Icon(Icons.date_range), label: const Text('Date')),
-                ]),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  value: _timeSlot,
-                  decoration: const InputDecoration(labelText: 'Créneau (optionnel)'),
-                  items: const [
-                    DropdownMenuItem(value: '08:00-10:00', child: Text('08:00 – 10:00')),
-                    DropdownMenuItem(value: '10:00-12:00', child: Text('10:00 – 12:00')),
-                    DropdownMenuItem(value: '12:00-14:00', child: Text('12:00 – 14:00')),
-                    DropdownMenuItem(value: '14:00-16:00', child: Text('14:00 – 16:00')),
-                    DropdownMenuItem(value: '16:00-18:00', child: Text('16:00 – 18:00')),
-                  ],
-                  onChanged: (v) => setState(() => _timeSlot = v),
-                ),
-              ]),
+                  ]),
             ),
             const SizedBox(height: 24),
-
             _buildSectionTitle('4', 'Localisation (GPS)'),
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: LightModeColors.lightPrimaryContainer.withValues(alpha: 0.20), borderRadius: BorderRadius.circular(AppRadius.md), border: Border.all(color: LightModeColors.lightPrimaryContainer)),
+              decoration: BoxDecoration(
+                  color: LightModeColors.lightPrimaryContainer
+                      .withValues(alpha: 0.20),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border:
+                      Border.all(color: LightModeColors.lightPrimaryContainer)),
               child: Row(children: [
-                const Icon(Icons.my_location, color: LightModeColors.lightPrimary),
+                const Icon(Icons.my_location,
+                    color: LightModeColors.lightPrimary),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    _latitude == null || _longitude == null ? 'Aucune coordonnée enregistrée (optionnel)' : 'GPS: ${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}',
-                    style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant),
+                    _latitude == null || _longitude == null
+                        ? 'Aucune coordonnée enregistrée (obligatoire)'
+                        : 'GPS: ${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}',
+                    style: context.textStyles.bodySmall?.copyWith(
+                        color: LightModeColors.lightOnSurfaceVariant),
                   ),
                 ),
                 TextButton(
                   onPressed: _locating ? null : _useMyLocation,
-                  child: _locating ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Moi'),
+                  child: _locating
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Moi'),
                 ),
               ]),
             ),
             const SizedBox(height: 32),
-
             _buildSectionTitle('5', 'Photo des déchets'),
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: LightModeColors.lightPrimaryContainer.withValues(alpha: 0.35),
+                color: LightModeColors.lightPrimaryContainer
+                    .withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(AppRadius.md),
-                border: Border.all(color: LightModeColors.lightPrimary, width: 1),
+                border:
+                    Border.all(color: LightModeColors.lightPrimary, width: 1),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Expanded(child: Text('Ajoutez des photos (optionnel)', style: context.textStyles.labelLarge?.copyWith(fontWeight: FontWeight.bold, color: LightModeColors.lightPrimary))),
-                      IconButton(onPressed: _pickPhotos, icon: Icon(Icons.photo_library, color: LightModeColors.lightPrimary)),
-                      IconButton(onPressed: _takePhoto, icon: Icon(Icons.photo_camera, color: LightModeColors.lightPrimary)),
+                      Expanded(
+                          child: Text('Ajoutez des photos (optionnel)',
+                              style: context.textStyles.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: LightModeColors.lightPrimary))),
+                      IconButton(
+                          onPressed: _pickPhotos,
+                          icon: Icon(Icons.photo_library,
+                              color: LightModeColors.lightPrimary)),
+                      IconButton(
+                          onPressed: _takePhoto,
+                          icon: Icon(Icons.photo_camera,
+                              color: LightModeColors.lightPrimary)),
                     ],
                   ),
                   const SizedBox(height: 8),
                   if (_photos.isEmpty)
-                    Text('Galerie ou caméra. Les photos seront uploadées après publication.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant))
+                    Text(
+                        'Galerie ou caméra. Les photos seront uploadées après publication. Si le chargement automatique échoue, vous pouvez continuer avec l adresse textuelle.',
+                        style: context.textStyles.bodySmall?.copyWith(
+                            color: LightModeColors.lightOnSurfaceVariant))
                   else
                     SizedBox(
                       height: 84,
@@ -1229,13 +1444,16 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                           final p = _photos[i];
                           return Stack(
                             children: [
-                              PickedImageThumb(file: p, size: 84, borderRadius: 14),
+                              PickedImageThumb(
+                                  file: p, size: 84, borderRadius: 14),
                               Positioned(
                                 right: -6,
                                 top: -6,
                                 child: IconButton(
-                                  onPressed: () => setState(() => _photos.removeAt(i)),
-                                  icon: const Icon(Icons.close, size: 18, color: Colors.red),
+                                  onPressed: () =>
+                                      setState(() => _photos.removeAt(i)),
+                                  icon: const Icon(Icons.close,
+                                      size: 18, color: Colors.red),
                                 ),
                               ),
                             ],
@@ -1247,16 +1465,15 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
               ),
             ),
             const SizedBox(height: 32),
-
             _buildSectionTitle('3b', 'Notes'),
             const SizedBox(height: 12),
             TextField(
               controller: _notesCtrl,
               maxLines: 3,
-              decoration: const InputDecoration(hintText: 'Ex: accès facile, appeler avant d\'arriver...'),
+              decoration: const InputDecoration(
+                  hintText: 'Ex: accès facile, appeler avant d\'arriver...'),
             ),
             const SizedBox(height: 32),
-
             _buildSectionTitle('4', 'Localisation'),
             const SizedBox(height: 12),
             Container(
@@ -1269,8 +1486,12 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
               child: Stack(
                 children: [
                   // Placeholder for map
-                  Center(child: Icon(Icons.map, size: 48, color: Colors.grey.shade400)),
-                  Center(child: Icon(Icons.location_on, size: 32, color: LightModeColors.lightPrimary)),
+                  Center(
+                      child: Icon(Icons.map,
+                          size: 48, color: Colors.grey.shade400)),
+                  Center(
+                      child: Icon(Icons.location_on,
+                          size: 32, color: LightModeColors.lightPrimary)),
                 ],
               ),
             ),
@@ -1283,18 +1504,26 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextField(controller: _neighborhoodCtrl, decoration: const InputDecoration(labelText: 'Quartier')),
+                      TextField(
+                          controller: _neighborhoodCtrl,
+                          decoration:
+                              const InputDecoration(labelText: 'Quartier')),
                       const SizedBox(height: 8),
-                      TextField(controller: _cityCtrl, decoration: const InputDecoration(labelText: 'Ville')),
+                      TextField(
+                          controller: _cityCtrl,
+                          decoration:
+                              const InputDecoration(labelText: 'Ville')),
                       const SizedBox(height: 8),
-                      TextField(controller: _detailsCtrl, decoration: const InputDecoration(labelText: 'Détails (rue, repères, etc.)')),
+                      TextField(
+                          controller: _detailsCtrl,
+                          decoration: const InputDecoration(
+                              labelText: 'Détails (rue, repères, etc.)')),
                     ],
                   ),
                 )
               ],
             ),
             const SizedBox(height: 32),
-
             _buildSectionTitle('5', 'Date et créneau'),
             const SizedBox(height: 12),
             Row(
@@ -1302,33 +1531,50 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                 Expanded(
                   child: Container(
                     padding: AppSpacing.paddingMd,
-                    decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
-                    child: const Row(children: [Icon(Icons.calendar_today, size: 16), SizedBox(width: 8), Text('12 Oct. 2023')]),
+                    decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8)),
+                    child: const Row(children: [
+                      Icon(Icons.calendar_today, size: 16),
+                      SizedBox(width: 8),
+                      Text('12 Oct. 2023')
+                    ]),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Container(
                     padding: AppSpacing.paddingMd,
-                    decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
-                    child: const Row(children: [Icon(Icons.access_time, size: 16), SizedBox(width: 8), Text('08:00 - 10:00')]),
+                    decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8)),
+                    child: const Row(children: [
+                      Icon(Icons.access_time, size: 16),
+                      SizedBox(width: 8),
+                      Text('08:00 - 10:00')
+                    ]),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 48),
-
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _publishing ? null : _publish,
-                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text(_publishing ? 'Publication...' : 'Publier la demande'), const SizedBox(width: 8), Icon(_publishing ? Icons.hourglass_top : Icons.send)]),
+                child:
+                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Text(_publishing ? 'Publication...' : 'Publier la demande'),
+                  const SizedBox(width: 8),
+                  Icon(_publishing ? Icons.hourglass_top : Icons.send)
+                ]),
               ),
             ),
             const SizedBox(height: 16),
             Text(
               'En publiant cette demande, vous acceptez nos conditions d\'utilisation concernant la gestion des déchets.',
-              style: context.textStyles.labelSmall?.copyWith(color: Colors.grey),
+              style:
+                  context.textStyles.labelSmall?.copyWith(color: Colors.grey),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
@@ -1341,9 +1587,17 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
   Widget _buildSectionTitle(String number, String title) {
     return Row(
       children: [
-        CircleAvatar(radius: 12, backgroundColor: LightModeColors.lightPrimary, child: Text(number, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
+        CircleAvatar(
+            radius: 12,
+            backgroundColor: LightModeColors.lightPrimary,
+            child: Text(number,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold))),
         const SizedBox(width: 8),
-        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
       ],
     );
   }
@@ -1354,7 +1608,9 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
       label: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: isSelected ? LightModeColors.lightPrimary : Colors.grey),
+          Icon(icon,
+              size: 16,
+              color: isSelected ? LightModeColors.lightPrimary : Colors.grey),
           const SizedBox(width: 8),
           Text(title),
         ],
@@ -1365,7 +1621,10 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
       backgroundColor: LightModeColors.lightSurface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: isSelected ? LightModeColors.lightPrimary : Colors.grey.shade300),
+        side: BorderSide(
+            color: isSelected
+                ? LightModeColors.lightPrimary
+                : Colors.grey.shade300),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
     );
@@ -1373,7 +1632,11 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
 }
 
 class PickedImageThumb extends StatelessWidget {
-  const PickedImageThumb({super.key, required this.file, required this.size, required this.borderRadius});
+  const PickedImageThumb(
+      {super.key,
+      required this.file,
+      required this.size,
+      required this.borderRadius});
 
   final XFile file;
   final double size;
@@ -1388,9 +1651,18 @@ class PickedImageThumb extends StatelessWidget {
         builder: (context, snap) {
           final bytes = snap.data;
           if (bytes == null) {
-            return Container(width: size, height: size, color: LightModeColors.lightSurfaceVariant, child: const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))));
+            return Container(
+                width: size,
+                height: size,
+                color: LightModeColors.lightSurfaceVariant,
+                child: const Center(
+                    child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2))));
           }
-          return Image.memory(bytes, width: size, height: size, fit: BoxFit.cover);
+          return Image.memory(bytes,
+              width: size, height: size, fit: BoxFit.cover);
         },
       ),
     );
@@ -1408,42 +1680,22 @@ class _RequestPickupMap extends StatelessWidget {
     final latRaw = address?['latitude'];
     final lngRaw = address?['longitude'];
     final hasCoords = latRaw is num && lngRaw is num;
-    final center = hasCoords ? LatLng(latRaw.toDouble(), lngRaw.toDouble()) : _douala;
+    final center =
+        hasCoords ? LatLng(latRaw.toDouble(), lngRaw.toDouble()) : _douala;
 
-    final markers = <fm.Marker>[];
-    if (hasCoords) {
-      markers.add(
-        fm.Marker(
-          point: center,
-          width: 46,
-          height: 46,
-          child: Container(
-            decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.max), border: Border.all(color: LightModeColors.lightPrimary)),
-            child: const Icon(Icons.location_on, color: LightModeColors.lightPrimary),
-          ),
-        ),
-      );
-    }
+    final markers = <MapPin>[
+      if (hasCoords) MapPin(point: center, color: LightModeColors.lightPrimary, radius: 9),
+    ];
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: SizedBox(
         height: 180,
         width: double.infinity,
-        child: fm.FlutterMap(
-          options: fm.MapOptions(
-            initialCenter: center,
-            initialZoom: hasCoords ? 15 : 12,
-            interactionOptions: const fm.InteractionOptions(flags: fm.InteractiveFlag.all & ~fm.InteractiveFlag.rotate),
-          ),
-          children: [
-            fm.TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'cleancity',
-              tileProvider: fm.NetworkTileProvider(headers: const {'User-Agent': MapsService.nominatimUserAgent}),
-            ),
-            if (markers.isNotEmpty) fm.MarkerLayer(markers: markers),
-          ],
+        child: CleanCityMapView(
+          center: center,
+          zoom: hasCoords ? 15 : 12,
+          markers: markers,
         ),
       ),
     );
@@ -1471,15 +1723,25 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
   void initState() {
     super.initState();
     _id = widget.requestId;
-    _requestFuture = _id == null ? Future<WasteRequest?>.value(null) : WasteRequestService().getById(_id!);
-    _photosFuture = _id == null ? Future.value(const <String>[]) : WasteRequestService().listPhotoUrls(_id!);
-    _collectorContactFuture = _id == null ? Future<Map<String, String>?>.value(null) : _loadCollectorContact(_id!);
+    _requestFuture = _id == null
+        ? Future<WasteRequest?>.value(null)
+        : WasteRequestService().getById(_id);
+    _photosFuture = _id == null
+        ? Future.value(const <String>[])
+        : WasteRequestService().listPhotoUrls(_id);
+    _collectorContactFuture = _id == null
+        ? Future<Map<String, String>?>.value(null)
+        : _loadCollectorContact(_id);
   }
 
   Future<Map<String, String>?> _loadCollectorContact(String requestId) async {
     try {
       final client = Supabase.instance.client;
-      final pickup = await client.from('pickups').select('collector_id').eq('request_id', requestId).maybeSingle();
+      final pickup = await client
+          .from('pickups')
+          .select('collector_id')
+          .eq('request_id', requestId)
+          .maybeSingle();
       final collectorId = (pickup?['collector_id'] ?? '').toString().trim();
       if (collectorId.isEmpty) return null;
       final profile = await AppUserService().getProfile(collectorId);
@@ -1502,9 +1764,11 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
     if (id == null || _addingPhoto) return;
     setState(() => _addingPhoto = true);
     try {
-      final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 1800);
+      final picked = await ImagePicker().pickImage(
+          source: ImageSource.gallery, imageQuality: 85, maxWidth: 1800);
       if (picked == null) return;
-      final url = await MediaUploadService().uploadWasteRequestPhoto(requestId: id, file: picked);
+      final url = await MediaUploadService()
+          .uploadWasteRequestPhoto(requestId: id, file: picked);
       await WasteRequestService().addPhotoUrl(requestId: id, url: url);
       await _refreshPhotos();
       if (!mounted) return;
@@ -1512,15 +1776,15 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
     } on StorageException catch (e) {
       debugPrint('Add photo storage failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, 'Upload refusé (Storage). Vérifiez buckets/policies.');
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
     } on MediaUploadException catch (e) {
       debugPrint('Add photo upload blocked: $e');
       if (!mounted) return;
-      AppSnackbars.warning(context, e.userMessage);
+      AppSnackbars.warning(context, AppErrorHandler.toUserMessage(e));
     } catch (e) {
       debugPrint('Add photo failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, 'Erreur upload.');
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
     } finally {
       if (mounted) setState(() => _addingPhoto = false);
     }
@@ -1532,7 +1796,8 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Détails de la demande', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: const Text('Détails de la demande',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
           IconButton(
@@ -1541,13 +1806,18 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
                 ? null
                 : () async {
                     try {
-                      final threadId = await ChatService().getOrCreateThreadForRequest(requestId: effectiveId);
+                      final threadId = await ChatService()
+                          .getOrCreateThreadForRequest(requestId: effectiveId);
                       if (!context.mounted) return;
-                      context.push(ChatRoutes.room, extra: {'threadId': threadId, 'requestId': effectiveId});
+                      context.push(ChatRoutes.room, extra: {
+                        'threadId': threadId,
+                        'requestId': effectiveId
+                      });
                     } catch (e) {
                       debugPrint('Open chat failed: $e');
                       if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+                      AppSnackbars.error(
+                          context, AppErrorHandler.toUserMessage(e));
                     }
                   },
             icon: const Icon(Icons.forum_outlined),
@@ -1555,7 +1825,12 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
           IconButton(
             tooltip: 'Ajouter une photo',
             onPressed: _addingPhoto ? null : _addPhoto,
-            icon: _addingPhoto ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.add_a_photo),
+            icon: _addingPhoto
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.add_a_photo),
           ),
         ],
       ),
@@ -1563,7 +1838,9 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
         future: _requestFuture,
         builder: (context, snap) {
           final r = snap.data;
-          final ref = effectiveId == null ? '—' : '#${effectiveId.substring(0, 8).toUpperCase()}';
+          final ref = effectiveId == null
+              ? '—'
+              : '#${effectiveId.substring(0, 8).toUpperCase()}';
           final status = r?.status ?? 'pending';
           final statusText = status.toUpperCase();
 
@@ -1593,244 +1870,347 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
               chipFg = Colors.grey.shade700;
           }
 
-            return SingleChildScrollView(
-              padding: AppSpacing.paddingLg,
-              child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(color: chipBg, borderRadius: BorderRadius.circular(16)),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: chipFg)),
-                    const SizedBox(width: 8),
-                    Text('STATUT: $statusText', style: context.textStyles.labelSmall?.copyWith(color: chipFg, fontWeight: FontWeight.bold)),
-                    const SizedBox(width: 10),
-                    Text(ref, style: context.textStyles.labelSmall?.copyWith(color: chipFg, fontWeight: FontWeight.w700)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              FutureBuilder(
-                future: _collectorContactFuture,
-                builder: (context, contactSnap) {
-                  final contact = contactSnap.data;
-                  final collectorId = (contact?['id'] ?? '').toString().trim();
-                  final collectorName = (contact?['name'] ?? '').toString().trim();
-                  if (collectorId.isEmpty) return const SizedBox.shrink();
-                  return SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        try {
-                          // Chat lié à la demande: conserve l'historique de la demande.
-                          final id = effectiveId;
-                          if (id == null || id.trim().isEmpty) {
-                            AppSnackbars.warning(context, 'Demande introuvable pour ouvrir le chat.');
-                            return;
-                          }
-                          final threadId = await ChatService().getOrCreateThreadForRequest(requestId: id);
-                          if (!context.mounted) return;
-                          context.push(ChatRoutes.room, extra: {'threadId': threadId, 'requestId': id});
-                        } catch (e) {
-                          debugPrint('Open request chat (generator→collector) failed: $e');
-                          if (!context.mounted) return;
-                          AppSnackbars.error(context, 'Impossible d’ouvrir le chat.');
-                        }
-                      },
-                      icon: const Icon(Icons.chat_bubble_outline),
-                      label: Text(collectorName.isEmpty ? 'Contacter le collecteur' : 'Contacter $collectorName'),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 18),
-             Text('Photos', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-             const SizedBox(height: 10),
-             FutureBuilder(
-               future: _photosFuture,
-               builder: (context, photosSnap) {
-                 final photos = photosSnap.data ?? const <String>[];
-                 if (photosSnap.connectionState == ConnectionState.waiting) {
-                   return const LinearProgressIndicator();
-                 }
-                 if (photos.isEmpty) {
-                   return Container(
-                     padding: AppSpacing.paddingLg,
-                     decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: LightModeColors.lightSurfaceVariant)),
-                     child: Row(
-                       children: [
-                         const CircleAvatar(backgroundColor: LightModeColors.lightPrimaryContainer, child: Icon(Icons.image_outlined, color: LightModeColors.lightPrimary)),
-                         const SizedBox(width: 12),
-                         Expanded(child: Text('Aucune photo. Appuyez sur l’icône caméra pour en ajouter.', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant))),
-                       ],
-                     ),
-                   );
-                 }
-                 return SizedBox(
-                   height: 120,
-                   child: ListView.separated(
-                     scrollDirection: Axis.horizontal,
-                     itemCount: photos.length,
-                     separatorBuilder: (_, __) => const SizedBox(width: 12),
-                     itemBuilder: (context, i) {
-                       final url = photos[i];
-                       return ClipRRect(
-                         borderRadius: BorderRadius.circular(18),
-                         child: Image.network(url, width: 160, height: 120, fit: BoxFit.cover),
-                       );
-                     },
-                   ),
-                 );
-               },
-             ),
-             const SizedBox(height: 18),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          return SingleChildScrollView(
+            padding: AppSpacing.paddingLg,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('RÉFÉRENCE', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
-                    Text(ref, style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  ],
-                ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(color: chipBg, borderRadius: BorderRadius.circular(16)),
-                  child: Text(statusText, style: TextStyle(color: chipFg, fontSize: 10, fontWeight: FontWeight.bold)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                      color: chipBg, borderRadius: BorderRadius.circular(16)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                              shape: BoxShape.circle, color: chipFg)),
+                      const SizedBox(width: 8),
+                      Text('STATUT: $statusText',
+                          style: context.textStyles.labelSmall?.copyWith(
+                              color: chipFg, fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 10),
+                      Text(ref,
+                          style: context.textStyles.labelSmall?.copyWith(
+                              color: chipFg, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 32),
-
-            if (snap.connectionState == ConnectionState.waiting) const LinearProgressIndicator(),
-            if (snap.hasError)
-              Padding(
-                padding: const EdgeInsets.only(top: 12.0),
-                child: Text('Erreur de chargement: ${snap.error}', style: const TextStyle(color: Colors.red)),
-              ),
-
-            // Timeline mockup
-            _buildTimelineItem('EN ATTENTE', 'Demande reçue le 24 Oct, 08:30', isPast: true),
-            _buildTimelineItem('ACCEPTÉE', 'Collecteur en cours de recherche', isActive: true),
-            _buildTimelineItem('EN LIVRAISON', 'Trajet vers le centre de tri'),
-            _buildTimelineItem('CONFIRMÉE', 'Collecte terminée', isLast: true),
-
-            const SizedBox(height: 32),
-            const Text('Collecteur assigné', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 16),
-            Container(
-              padding: AppSpacing.paddingMd,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const CircleAvatar(radius: 24, backgroundImage: NetworkImage('https://i.pravatar.cc/100')), // Placeholder
-                  const SizedBox(width: 16),
-                  const Expanded(
-                    child: Column(
+                const SizedBox(height: 12),
+                FutureBuilder(
+                  future: _collectorContactFuture,
+                  builder: (context, contactSnap) {
+                    final contact = contactSnap.data;
+                    final collectorId =
+                        (contact?['id'] ?? '').toString().trim();
+                    final collectorName =
+                        (contact?['name'] ?? '').toString().trim();
+                    if (collectorId.isEmpty) return const SizedBox.shrink();
+                    return SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          try {
+                            // Chat lié à la demande: conserve l'historique de la demande.
+                            final id = effectiveId;
+                            if (id == null || id.trim().isEmpty) {
+                              AppSnackbars.warning(context,
+                                  'Demande introuvable pour ouvrir le chat.');
+                              return;
+                            }
+                            final threadId = await ChatService()
+                                .getOrCreateThreadForRequest(requestId: id);
+                            if (!context.mounted) return;
+                            context.push(ChatRoutes.room,
+                                extra: {'threadId': threadId, 'requestId': id});
+                          } catch (e) {
+                            debugPrint(
+                                'Open request chat (generator→collector) failed: $e');
+                            if (!context.mounted) return;
+                            AppSnackbars.error(
+                                context, 'Impossible d’ouvrir le chat.');
+                          }
+                        },
+                        icon: const Icon(Icons.chat_bubble_outline),
+                        label: Text(collectorName.isEmpty
+                            ? 'Contacter le collecteur'
+                            : 'Contacter $collectorName'),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 18),
+                Text('Photos',
+                    style: context.textStyles.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                FutureBuilder(
+                  future: _photosFuture,
+                  builder: (context, photosSnap) {
+                    final photos = photosSnap.data ?? const <String>[];
+                    if (photosSnap.connectionState == ConnectionState.waiting) {
+                      return const LinearProgressIndicator();
+                    }
+                    if (photos.isEmpty) {
+                      return Container(
+                        padding: AppSpacing.paddingLg,
+                        decoration: BoxDecoration(
+                            color: LightModeColors.lightSurface,
+                            borderRadius: BorderRadius.circular(AppRadius.lg),
+                            border: Border.all(
+                                color: LightModeColors.lightSurfaceVariant)),
+                        child: Row(
+                          children: [
+                            const CircleAvatar(
+                                backgroundColor:
+                                    LightModeColors.lightPrimaryContainer,
+                                child: Icon(Icons.image_outlined,
+                                    color: LightModeColors.lightPrimary)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                                child: Text(
+                                    'Aucune photo. Appuyez sur l’icône caméra pour en ajouter.',
+                                    style: context.textStyles.bodySmall
+                                        ?.copyWith(
+                                            color: LightModeColors
+                                                .lightOnSurfaceVariant))),
+                          ],
+                        ),
+                      );
+                    }
+                    return SizedBox(
+                      height: 120,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: photos.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 12),
+                        itemBuilder: (context, i) {
+                          final url = photos[i];
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: Image.network(url,
+                                width: 160, height: 120, fit: BoxFit.cover),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Moussa Ibrahim', style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text('Camion Compacteur • LT-192-AB', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        const Text('RÉFÉRENCE',
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey,
+                                fontWeight: FontWeight.bold)),
+                        Text(ref,
+                            style: context.textStyles.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold)),
                       ],
                     ),
-                  ),
-                  Row(
-                    children: [
-                      IconButton(icon: const Icon(Icons.call, color: Colors.green), onPressed: (){}, style: IconButton.styleFrom(backgroundColor: Colors.green.shade50)),
-                      IconButton(icon: const Icon(Icons.message, color: Colors.blue), onPressed: (){}, style: IconButton.styleFrom(backgroundColor: Colors.blue.shade50)),
-                    ],
-                  )
-                ],
-              ),
-            ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                          color: chipBg,
+                          borderRadius: BorderRadius.circular(16)),
+                      child: Text(statusText,
+                          style: TextStyle(
+                              color: chipFg,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
 
-            const SizedBox(height: 32),
-            const Text('Localisation du collecteur', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 16),
-            Container(
-              height: 150,
-              width: double.infinity,
-              decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(12)),
-              child: Stack(
-                children: [
-                  Center(child: Icon(Icons.map, size: 48, color: Colors.grey.shade400)),
-                  Positioned(
-                    bottom: 16,
-                    left: 16,
-                    right: 16,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)]),
-                      child: const Row(
+                if (snap.connectionState == ConnectionState.waiting)
+                  const LinearProgressIndicator(),
+                if (snap.hasError)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12.0),
+                    child: Text('Erreur de chargement: ${snap.error}',
+                        style: const TextStyle(color: Colors.red)),
+                  ),
+
+                // Timeline mockup
+                _buildTimelineItem(
+                    'EN ATTENTE', 'Demande reçue le 24 Oct, 08:30',
+                    isPast: true),
+                _buildTimelineItem(
+                    'ACCEPTÉE', 'Collecteur en cours de recherche',
+                    isActive: true),
+                _buildTimelineItem(
+                    'EN LIVRAISON', 'Trajet vers le centre de tri'),
+                _buildTimelineItem('CONFIRMÉE', 'Collecte terminée',
+                    isLast: true),
+
+                const SizedBox(height: 32),
+                const Text('Collecteur assigné',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 16),
+                Container(
+                  padding: AppSpacing.paddingMd,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const CircleAvatar(
+                          radius: 24,
+                          backgroundImage: NetworkImage(
+                              'https://i.pravatar.cc/100')), // Placeholder
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Moussa Ibrahim',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text('Camion Compacteur • LT-192-AB',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey)),
+                          ],
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                              icon: const Icon(Icons.call, color: Colors.green),
+                              onPressed: () {},
+                              style: IconButton.styleFrom(
+                                  backgroundColor: Colors.green.shade50)),
+                          IconButton(
+                              icon:
+                                  const Icon(Icons.message, color: Colors.blue),
+                              onPressed: () {},
+                              style: IconButton.styleFrom(
+                                  backgroundColor: Colors.blue.shade50)),
+                        ],
+                      )
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 32),
+                const Text('Localisation du collecteur',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 16),
+                Container(
+                  height: 150,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Stack(
+                    children: [
+                      Center(
+                          child: Icon(Icons.map,
+                              size: 48, color: Colors.grey.shade400)),
+                      Positioned(
+                        bottom: 16,
+                        left: 16,
+                        right: 16,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black12, blurRadius: 4)
+                              ]),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Arrivée prévue : ~12 mins',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12)),
+                              Text('2.4 km',
+                                  style: TextStyle(
+                                      color: Colors.grey, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                      )
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 32),
+                const Text('Récapitulatif des déchets',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 16),
+                Container(
+                  padding: AppSpacing.paddingMd,
+                  decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Column(
+                    children: [
+                      _buildSummaryRow(Icons.local_drink, Colors.orange,
+                          'Plastiques & PET', '3 sacs volumineux', '~15 kg'),
+                      const Divider(height: 24),
+                      _buildSummaryRow(Icons.description, Colors.blue,
+                          'Papiers & Cartons', '1 boite moyenne', '~5 kg'),
+                      const Divider(height: 24),
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Arrivée prévue : ~12 mins', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                          Text('2.4 km', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                          const Text('Total estimé',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text('2.500 CFA',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: LightModeColors.lightPrimary,
+                                  fontSize: 16)),
                         ],
-                      ),
-                    ),
-                  )
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-            const Text('Récapitulatif des déchets', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 16),
-            Container(
-              padding: AppSpacing.paddingMd,
-              decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
-              child: Column(
-                children: [
-                  _buildSummaryRow(Icons.local_drink, Colors.orange, 'Plastiques & PET', '3 sacs volumineux', '~15 kg'),
-                  const Divider(height: 24),
-                  _buildSummaryRow(Icons.description, Colors.blue, 'Papiers & Cartons', '1 boite moyenne', '~5 kg'),
-                  const Divider(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Total estimé', style: TextStyle(fontWeight: FontWeight.bold)),
-                      Text('2.500 CFA', style: TextStyle(fontWeight: FontWeight.bold, color: LightModeColors.lightPrimary, fontSize: 16)),
+                      )
                     ],
-                  )
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: effectiveId == null
-                    ? () => context.pop()
-                    : () async {
-                        try {
-                          await WasteRequestService().cancel(effectiveId);
-                          if (!context.mounted) return;
-                          AppSnackbars.success(context, 'Demande annulée.');
-                          context.pop();
-                        } catch (e) {
-                          debugPrint('Cancel request failed: $e');
-                          if (!context.mounted) return;
-                          AppSnackbars.error(context, 'Annulation échouée.');
-                        }
-                      },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red),
+                  ),
                 ),
-                child: const Text('Annuler la demande'),
-              ),
-            ),
-            const SizedBox(height: 32),
-          ],
+
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: effectiveId == null
+                        ? () => context.pop()
+                        : () async {
+                            try {
+                              await WasteRequestService().cancel(effectiveId);
+                              if (!context.mounted) return;
+                              AppSnackbars.success(context, 'Demande annulée.');
+                              context.pop();
+                            } catch (e) {
+                              debugPrint('Cancel request failed: $e');
+                              if (!context.mounted) return;
+                              AppSnackbars.error(
+                                  context, 'Annulation échouée.');
+                            }
+                          },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                    ),
+                    child: const Text('Annuler la demande'),
+                  ),
+                ),
+                const SizedBox(height: 32),
+              ],
             ),
           );
         },
@@ -1838,8 +2218,11 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
     );
   }
 
-  Widget _buildTimelineItem(String title, String subtitle, {bool isPast = false, bool isActive = false, bool isLast = false}) {
-    Color color = isPast || isActive ? LightModeColors.lightPrimary : Colors.grey.shade300;
+  Widget _buildTimelineItem(String title, String subtitle,
+      {bool isPast = false, bool isActive = false, bool isLast = false}) {
+    Color color = isPast || isActive
+        ? LightModeColors.lightPrimary
+        : Colors.grey.shade300;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1853,7 +2236,9 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
                 color: isActive ? color : Colors.transparent,
                 border: Border.all(color: color, width: 2),
               ),
-              child: isPast ? const Icon(Icons.check, size: 12, color: Colors.white) : null,
+              child: isPast
+                  ? const Icon(Icons.check, size: 12, color: Colors.white)
+                  : null,
             ),
             if (!isLast) Container(width: 2, height: 40, color: color),
           ],
@@ -1862,21 +2247,29 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: isActive ? Colors.black : Colors.grey, fontSize: 12)),
+            Text(title,
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: isActive ? Colors.black : Colors.grey,
+                    fontSize: 12)),
             const SizedBox(height: 4),
-            Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            Text(subtitle,
+                style: const TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         )
       ],
     );
   }
 
-  Widget _buildSummaryRow(IconData icon, Color color, String title, String desc, String weight) {
+  Widget _buildSummaryRow(
+      IconData icon, Color color, String title, String desc, String weight) {
     return Row(
       children: [
         Container(
           padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8)),
           child: Icon(icon, color: color, size: 20),
         ),
         const SizedBox(width: 16),
@@ -1885,7 +2278,8 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text(desc, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              Text(desc,
+                  style: const TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           ),
         ),

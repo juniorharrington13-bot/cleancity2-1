@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:cleancity/auth/auth_manager.dart';
+import 'package:cleancity/components/app_error_handler.dart';
 import 'package:cleancity/components/app_snackbars.dart';
 import 'package:cleancity/nav.dart';
 import 'package:cleancity/services/app_user_service.dart';
@@ -37,7 +39,8 @@ class _SplashScreenState extends State<SplashScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Spacer(),
-            Icon(Icons.eco_rounded, size: 80, color: LightModeColors.lightPrimary),
+            Icon(Icons.eco_rounded,
+                size: 80, color: LightModeColors.lightPrimary),
             const SizedBox(height: 16),
             Text(
               'CLEANCITY',
@@ -70,24 +73,33 @@ class _SplashScreenState extends State<SplashScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('INITIALISATION', style: context.textStyles.labelSmall?.copyWith(color: LightModeColors.lightPrimary, fontWeight: FontWeight.bold)),
-                      Text('75%', style: context.textStyles.labelSmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
+                      Text('INITIALISATION',
+                          style: context.textStyles.labelSmall?.copyWith(
+                              color: LightModeColors.lightPrimary,
+                              fontWeight: FontWeight.bold)),
+                      Text('75%',
+                          style: context.textStyles.labelSmall?.copyWith(
+                              color: LightModeColors.lightOnSurfaceVariant)),
                     ],
                   ),
                   const SizedBox(height: 8),
                   LinearProgressIndicator(
                     value: 0.75,
                     backgroundColor: LightModeColors.lightPrimaryContainer,
-                    valueColor: AlwaysStoppedAnimation<Color>(LightModeColors.lightPrimary),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                        LightModeColors.lightPrimary),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.location_on_outlined, size: 14, color: LightModeColors.lightPrimary),
+                      Icon(Icons.location_on_outlined,
+                          size: 14, color: LightModeColors.lightPrimary),
                       const SizedBox(width: 4),
-                      Text('Made for Cameroon', style: context.textStyles.labelSmall?.copyWith(color: LightModeColors.lightPrimary)),
+                      Text('Made for Cameroon',
+                          style: context.textStyles.labelSmall
+                              ?.copyWith(color: LightModeColors.lightPrimary)),
                     ],
                   ),
                 ],
@@ -128,30 +140,17 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
   bool _handledOAuthRedirect = false;
 
   String _friendlyLoginError(Object e) {
-    // Supabase returns AuthApiException for most auth failures.
-    if (e is AuthApiException) {
-      final msg = e.message.toLowerCase();
-      final code = (e.code ?? '').toLowerCase();
-      final isInvalid = msg.contains('invalid login') ||
-          msg.contains('invalid credentials') ||
-          code == 'invalid_credentials' ||
-          code == 'invalid_grant';
-      if (isInvalid) return 'MOT DE PASSE OU EMAIL INVALIDE';
-    }
-
-    // Fallback: match common message substring patterns.
-    final raw = e.toString().toLowerCase();
-    if (raw.contains('invalid login') || raw.contains('invalid credentials') || raw.contains('invalid_grant')) {
+    final mapped = AppErrorHandler.toUserMessage(e);
+    if (mapped == 'Email ou mot de passe invalide.')
       return 'MOT DE PASSE OU EMAIL INVALIDE';
-    }
-
-    return 'Connexion échouée. Veuillez réessayer.';
+    return mapped;
   }
 
   @override
   void initState() {
     super.initState();
-    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+    _authSub =
+        Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       if (_handledOAuthRedirect) return;
       if (data.event != AuthChangeEvent.signedIn) return;
       final user = data.session?.user;
@@ -241,22 +240,25 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
               const SizedBox(height: 24),
               Text('Connexion', style: context.textStyles.headlineLarge),
               const SizedBox(height: 8),
-              Text('Heureux de vous revoir sur CLEANCITY', style: context.textStyles.bodyLarge?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
+              Text('Heureux de vous revoir sur CLEANCITY',
+                  style: context.textStyles.bodyLarge
+                      ?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
               const SizedBox(height: 48),
-              
-              const Text('Email', style: TextStyle(fontWeight: FontWeight.w600)),
+              const Text('Email',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               TextField(
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   hintText: 'votre@email.cm',
-                  prefixIcon: Icon(Icons.person_outline, color: LightModeColors.lightOnSurfaceVariant),
+                  prefixIcon: Icon(Icons.person_outline,
+                      color: LightModeColors.lightOnSurfaceVariant),
                 ),
               ),
               const SizedBox(height: 24),
-              
-              const Text('Mot de passe', style: TextStyle(fontWeight: FontWeight.w600)),
+              const Text('Mot de passe',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               TextField(
                 key: ValueKey('login_pwd_${_obscurePassword ? '1' : '0'}'),
@@ -266,28 +268,35 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
                 autocorrect: false,
                 decoration: InputDecoration(
                   hintText: 'Entrez votre mot de passe',
-                  prefixIcon: Icon(Icons.lock_outline, color: LightModeColors.lightOnSurfaceVariant),
+                  prefixIcon: Icon(Icons.lock_outline,
+                      color: LightModeColors.lightOnSurfaceVariant),
                   suffixIcon: IconButton(
-                    tooltip: _obscurePassword ? 'Afficher le mot de passe' : 'Masquer le mot de passe',
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    tooltip: _obscurePassword
+                        ? 'Afficher le mot de passe'
+                        : 'Masquer le mot de passe',
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      _obscurePassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
                       color: LightModeColors.lightOnSurfaceVariant,
                     ),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {},
-                  child: Text('Mot de passe oublié ?', style: TextStyle(color: LightModeColors.lightPrimary, fontWeight: FontWeight.w600)),
+                  child: Text('Mot de passe oublié ?',
+                      style: TextStyle(
+                          color: LightModeColors.lightPrimary,
+                          fontWeight: FontWeight.w600)),
                 ),
               ),
               const SizedBox(height: 32),
-              
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -303,32 +312,34 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
                 ),
               ),
               const SizedBox(height: 20),
-
               SocialAuthSection(
                 isLoading: _isLoading,
                 onGoogle: _signInWithGoogle,
               ),
-
               const SizedBox(height: 12),
-
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: _isLoading ? null : () => context.push(AppRoutes.phoneLogin),
+                  onPressed: _isLoading
+                      ? null
+                      : () => context.push(AppRoutes.phoneLogin),
                   icon: const Icon(Icons.sms_outlined),
                   label: const Text('Se connecter avec un numéro'),
                 ),
               ),
-
               const SizedBox(height: 24),
-              
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('Pas encore de compte ? ', style: TextStyle(color: LightModeColors.lightOnSurfaceVariant)),
+                  Text('Pas encore de compte ? ',
+                      style: TextStyle(
+                          color: LightModeColors.lightOnSurfaceVariant)),
                   GestureDetector(
                     onTap: () => context.go(AppRoutes.signup),
-                    child: Text("S'inscrire", style: TextStyle(color: LightModeColors.lightPrimary, fontWeight: FontWeight.bold)),
+                    child: Text("S'inscrire",
+                        style: TextStyle(
+                            color: LightModeColors.lightPrimary,
+                            fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -409,14 +420,11 @@ class _PhoneLoginBodyState extends State<_PhoneLoginBody> {
   }
 
   String _friendlyPhoneSendError(Object e) {
-    final msg = e.toString();
-    if (msg.contains('Invalid phone number') || msg.contains('phone')) {
-      return 'Numéro invalide. Exemple : +2376XXXXXXXX.';
-    }
-    if (msg.contains('SMS') || msg.contains('sms')) {
+    final msg = e.toString().toLowerCase();
+    if (msg.contains('sms')) {
       return 'SMS indisponible pour le moment. Réessayez plus tard.';
     }
-    return 'Impossible d’envoyer le code.';
+    return AppErrorHandler.toUserMessage(e);
   }
 
   Future<void> _sendCode() async {
@@ -450,7 +458,8 @@ class _PhoneLoginBodyState extends State<_PhoneLoginBody> {
     }
     setState(() => _verifying = true);
     try {
-      final user = await SupabaseAuthManager().verifyPhoneOtp(phoneE164: phone, code: code);
+      final user = await SupabaseAuthManager()
+          .verifyPhoneOtp(phoneE164: phone, code: code);
       if (user != null) {
         await PushNotificationService.setExternalUserId(user.id);
       }
@@ -472,8 +481,10 @@ class _PhoneLoginBodyState extends State<_PhoneLoginBody> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            if (context.canPop()) context.pop();
-            else context.go(AppRoutes.login);
+            if (context.canPop())
+              context.pop();
+            else
+              context.go(AppRoutes.login);
           },
         ),
         title: const Text('Connexion par téléphone'),
@@ -481,16 +492,24 @@ class _PhoneLoginBodyState extends State<_PhoneLoginBody> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: AppSpacing.paddingLg,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const SizedBox(height: 16),
-            Text('Numéro', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Text('Numéro',
+                style: context.textStyles.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             TextField(
               controller: _phoneCtrl,
               keyboardType: TextInputType.phone,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9+\s]')),
+                _CameroonPhoneTypingFormatter(),
+              ],
               decoration: InputDecoration(
                 hintText: '+2376XXXXXXXX',
-                prefixIcon: Icon(Icons.phone_outlined, color: LightModeColors.lightOnSurfaceVariant),
+                prefixIcon: Icon(Icons.phone_outlined,
+                    color: LightModeColors.lightOnSurfaceVariant),
               ),
             ),
             const SizedBox(height: 16),
@@ -504,14 +523,17 @@ class _PhoneLoginBodyState extends State<_PhoneLoginBody> {
             ),
             if (_codeSent) ...[
               const SizedBox(height: 24),
-              Text('Code SMS', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              Text('Code SMS',
+                  style: context.textStyles.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               TextField(
                 controller: _codeCtrl,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   hintText: '123456',
-                  prefixIcon: Icon(Icons.lock_clock_outlined, color: LightModeColors.lightOnSurfaceVariant),
+                  prefixIcon: Icon(Icons.lock_clock_outlined,
+                      color: LightModeColors.lightOnSurfaceVariant),
                 ),
               ),
               const SizedBox(height: 16),
@@ -519,12 +541,16 @@ class _PhoneLoginBodyState extends State<_PhoneLoginBody> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: _verifying ? null : _verify,
-                  icon: Icon(_verifying ? Icons.hourglass_top : Icons.verified_outlined),
+                  icon: Icon(_verifying
+                      ? Icons.hourglass_top
+                      : Icons.verified_outlined),
                   label: Text(_verifying ? 'Vérification...' : 'Valider'),
                 ),
               ),
               const SizedBox(height: 8),
-              TextButton(onPressed: _sending ? null : _sendCode, child: const Text('Renvoyer le code')),
+              TextButton(
+                  onPressed: _sending ? null : _sendCode,
+                  child: const Text('Renvoyer le code')),
             ],
           ]),
         ),
@@ -554,10 +580,13 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
   StreamSubscription<AuthState>? _authSub;
   bool _handledOAuthRedirect = false;
 
+  static final RegExp _cmPhoneRegex = RegExp(r'^\+2376\d{8}$');
+
   @override
   void initState() {
     super.initState();
-    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+    _authSub =
+        Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       if (_handledOAuthRedirect) return;
       if (data.event != AuthChangeEvent.signedIn) return;
       final user = data.session?.user;
@@ -603,7 +632,8 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
 
   String _toE164Cameroon(String phone) {
     final digits = phone.replaceAll(RegExp(r'\D'), '');
-    final normalized = digits.startsWith('237') ? digits.substring(3) : digits;
+    String normalized = digits.startsWith('237') ? digits.substring(3) : digits;
+    if (normalized.startsWith('0')) normalized = normalized.substring(1);
     return '+237$normalized';
   }
 
@@ -617,12 +647,22 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
     final password = _passwordCtrl.text;
     final password2 = _password2Ctrl.text;
 
-    if (fullName.isEmpty || email.isEmpty || phoneRaw.isEmpty || password.isEmpty) {
-      AppSnackbars.warning(context, 'Veuillez remplir tous les champs obligatoires.');
+    if (fullName.isEmpty ||
+        email.isEmpty ||
+        phoneRaw.isEmpty ||
+        password.isEmpty) {
+      AppSnackbars.warning(
+          context, 'Veuillez remplir tous les champs obligatoires.');
       return;
     }
     if (password != password2) {
       AppSnackbars.warning(context, 'Les mots de passe ne correspondent pas.');
+      return;
+    }
+    final phoneE164 = _toE164Cameroon(phoneRaw);
+    if (!_cmPhoneRegex.hasMatch(phoneE164)) {
+      AppSnackbars.warning(
+          context, 'Numéro invalide. Utilisez le format +2376XXXXXXXX.');
       return;
     }
 
@@ -639,7 +679,7 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
         userId: user.id,
         email: email,
         fullName: fullName,
-        phoneE164: _toE164Cameroon(phoneRaw),
+        phoneE164: phoneE164,
         preferredLanguage: 'fr',
         role: 'generator',
       );
@@ -649,7 +689,7 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
     } catch (e) {
       debugPrint('Signup failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, 'Inscription échouée.');
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -663,7 +703,8 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go(AppRoutes.login),
         ),
-        title: const Text('Inscription', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        title: const Text('Inscription',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -679,45 +720,64 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
                   borderRadius: BorderRadius.circular(AppRadius.lg),
                 ),
                 child: Center(
-                  child: Icon(Icons.park_outlined, size: 64, color: LightModeColors.lightPrimary.withValues(alpha: 0.5)),
+                  child: Icon(Icons.eco_rounded,
+                      size: 64,
+                      color:
+                          LightModeColors.lightPrimary.withValues(alpha: 0.5)),
                 ),
               ),
               const SizedBox(height: 24),
-              Center(child: Text('Rejoignez-nous', style: context.textStyles.headlineMedium)),
+              Center(
+                  child: Text('Rejoignez-nous',
+                      style: context.textStyles.headlineMedium)),
               const SizedBox(height: 8),
               Center(
                 child: Text(
-                  'Contribuez à un Cameroun plus propre avec CLEANCITY', 
-                  style: context.textStyles.bodyMedium?.copyWith(color: LightModeColors.lightOnSurfaceVariant),
+                  'Contribuez à un Cameroun plus propre avec CLEANCITY',
+                  style: context.textStyles.bodyMedium
+                      ?.copyWith(color: LightModeColors.lightOnSurfaceVariant),
                   textAlign: TextAlign.center,
                 ),
               ),
               const SizedBox(height: 32),
-
               _buildLabel('Nom complet'),
-              TextField(controller: _fullNameCtrl, decoration: _inputDeco(Icons.person_outline, 'Ex: Jean-Paul Biya')),
+              TextField(
+                  controller: _fullNameCtrl,
+                  decoration:
+                      _inputDeco(Icons.person_outline, 'Ex: Jean-Paul Biya')),
               const SizedBox(height: 16),
-
               _buildLabel('Adresse Email'),
-              TextField(controller: _emailCtrl, keyboardType: TextInputType.emailAddress, decoration: _inputDeco(Icons.email_outlined, 'votre@email.cm')),
+              TextField(
+                  controller: _emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration:
+                      _inputDeco(Icons.email_outlined, 'votre@email.cm')),
               const SizedBox(height: 16),
-
               _buildLabel('Numéro de téléphone'),
               TextField(
                 controller: _phoneCtrl,
                 keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  _CameroonLocalPhoneFormatter(),
+                ],
                 decoration: InputDecoration(
-                  hintText: '6XX XXX XXX',
+                  hintText: '6XX XXX XXX (+2376XXXXXXXX)',
                   prefixIcon: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.flag, color: Colors.green.shade800, size: 20),
+                        Icon(Icons.flag,
+                            color: Colors.green.shade800, size: 20),
                         const SizedBox(width: 4),
-                        const Text('+237', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const Text('+237',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                         const SizedBox(width: 8),
-                        Container(width: 1, height: 20, color: LightModeColors.lightOutline),
+                        Container(
+                            width: 1,
+                            height: 20,
+                            color: LightModeColors.lightOutline),
                         const SizedBox(width: 8),
                       ],
                     ),
@@ -725,14 +785,15 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
                 ),
               ),
               const SizedBox(height: 16),
-
               _buildLabel('Ville'),
               DropdownButtonFormField<String>(
-                decoration: _inputDeco(Icons.location_city_outlined, 'Choisir votre ville'),
+                decoration: _inputDeco(
+                    Icons.location_city_outlined, 'Choisir votre ville'),
                 items: const [
                   DropdownMenuItem(value: 'Douala', child: Text('Douala')),
                   DropdownMenuItem(value: 'Yaoundé', child: Text('Yaoundé')),
-                  DropdownMenuItem(value: 'Bafoussam', child: Text('Bafoussam')),
+                  DropdownMenuItem(
+                      value: 'Bafoussam', child: Text('Bafoussam')),
                   DropdownMenuItem(value: 'Garoua', child: Text('Garoua')),
                 ],
                 value: _city,
@@ -742,7 +803,6 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
                 },
               ),
               const SizedBox(height: 16),
-
               _buildLabel('Mot de passe'),
               TextField(
                 key: ValueKey('signup_pwd_${_obscurePassword ? '1' : '0'}'),
@@ -752,17 +812,21 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
                 autocorrect: false,
                 decoration: _inputDeco(Icons.lock_outline, '••••••••').copyWith(
                   suffixIcon: IconButton(
-                    tooltip: _obscurePassword ? 'Afficher le mot de passe' : 'Masquer le mot de passe',
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    tooltip: _obscurePassword
+                        ? 'Afficher le mot de passe'
+                        : 'Masquer le mot de passe',
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      _obscurePassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
                       color: LightModeColors.lightOnSurfaceVariant,
                     ),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-
               _buildLabel('Confirmer le mot de passe'),
               TextField(
                 key: ValueKey('signup_pwd2_${_obscurePassword2 ? '1' : '0'}'),
@@ -772,17 +836,21 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
                 autocorrect: false,
                 decoration: _inputDeco(Icons.lock_outline, '••••••••').copyWith(
                   suffixIcon: IconButton(
-                    tooltip: _obscurePassword2 ? 'Afficher le mot de passe' : 'Masquer le mot de passe',
-                    onPressed: () => setState(() => _obscurePassword2 = !_obscurePassword2),
+                    tooltip: _obscurePassword2
+                        ? 'Afficher le mot de passe'
+                        : 'Masquer le mot de passe',
+                    onPressed: () =>
+                        setState(() => _obscurePassword2 = !_obscurePassword2),
                     icon: Icon(
-                      _obscurePassword2 ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      _obscurePassword2
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
                       color: LightModeColors.lightOnSurfaceVariant,
                     ),
                   ),
                 ),
               ),
               const SizedBox(height: 32),
-
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -791,21 +859,23 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
                 ),
               ),
               const SizedBox(height: 16),
-
               SocialAuthSection(
                 isLoading: _isLoading,
                 onGoogle: _oauthGoogle,
               ),
-
               const SizedBox(height: 20),
-
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('Déjà un compte ? ', style: TextStyle(color: LightModeColors.lightOnSurfaceVariant)),
+                  Text('Déjà un compte ? ',
+                      style: TextStyle(
+                          color: LightModeColors.lightOnSurfaceVariant)),
                   GestureDetector(
                     onTap: () => context.go(AppRoutes.login),
-                    child: Text("Se connecter", style: TextStyle(color: LightModeColors.lightPrimary, fontWeight: FontWeight.bold)),
+                    child: Text("Se connecter",
+                        style: TextStyle(
+                            color: LightModeColors.lightPrimary,
+                            fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -851,7 +921,10 @@ class SocialAuthSection extends StatelessWidget {
             const Expanded(child: Divider(height: 1)),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text('OU', style: context.textStyles.labelMedium?.copyWith(color: LightModeColors.lightOnSurfaceVariant, fontWeight: FontWeight.w700)),
+              child: Text('OU',
+                  style: context.textStyles.labelMedium?.copyWith(
+                      color: LightModeColors.lightOnSurfaceVariant,
+                      fontWeight: FontWeight.w700)),
             ),
             const Expanded(child: Divider(height: 1)),
           ],
@@ -861,12 +934,54 @@ class SocialAuthSection extends StatelessWidget {
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: isLoading ? null : onGoogle,
-            icon: const Icon(Icons.g_mobiledata_rounded, color: LightModeColors.lightPrimary),
+            icon: const Icon(Icons.g_mobiledata_rounded,
+                color: LightModeColors.lightPrimary),
             label: const Text('Continuer avec Google'),
           ),
         ),
       ],
     );
+  }
+}
+
+class _CameroonLocalPhoneFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    final clipped = digits.length > 9 ? digits.substring(0, 9) : digits;
+    final b = StringBuffer();
+    for (int i = 0; i < clipped.length; i++) {
+      b.write(clipped[i]);
+      if (i == 2 || i == 5) b.write(' ');
+    }
+    final text = b.toString().trimRight();
+    return TextEditingValue(
+        text: text, selection: TextSelection.collapsed(offset: text.length));
+  }
+}
+
+class _CameroonPhoneTypingFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    final raw = newValue.text.trim();
+    if (raw.isEmpty) return newValue;
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    String local = digits;
+    if (digits.startsWith('237')) {
+      local = digits.substring(3);
+    }
+    if (local.length > 9) local = local.substring(0, 9);
+    final b = StringBuffer('+237');
+    for (int i = 0; i < local.length; i++) {
+      if (i == 0 || i == 3 || i == 6) b.write(i == 0 ? '' : ' ');
+      b.write(local[i]);
+    }
+    final formatted = b.toString().trimRight();
+    return TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length));
   }
 }
 
@@ -879,7 +994,8 @@ class RoleSelectionScreen extends StatelessWidget {
       final profile = await AppUserService().getCurrentProfile();
       if (profile?.role != 'admin') {
         if (!context.mounted) return;
-        AppSnackbars.warning(context, "Accès refusé. Ce compte n'est pas administrateur.");
+        AppSnackbars.warning(
+            context, "Accès refusé. Ce compte n'est pas administrateur.");
         return;
       }
       if (context.mounted) context.go(AppRoutes.adminDashboard);
@@ -894,7 +1010,8 @@ class RoleSelectionScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+        leading: IconButton(
+            icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
         title: const Text('CLEANCITY Cameroun', style: TextStyle(fontSize: 14)),
       ),
       body: SafeArea(
@@ -906,57 +1023,55 @@ class RoleSelectionScreen extends StatelessWidget {
               const SizedBox(height: 16),
               Text('Bienvenue !', style: context.textStyles.headlineLarge),
               const SizedBox(height: 8),
-              Text('Quel est votre rôle dans l\'écosystème ?', style: context.textStyles.bodyLarge?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
+              Text('Quel est votre rôle dans l\'écosystème ?',
+                  style: context.textStyles.bodyLarge
+                      ?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
               const SizedBox(height: 40),
-
-               _RoleCard(
+              _RoleCard(
                 icon: Icons.home_work_outlined,
                 title: 'Générateur',
                 subtitle: 'PARTICULIER OU ENTREPRISE',
                 description: 'Je souhaite faire enlever mes déchets.',
-                 onTap: () async {
-                   try {
-                     await AppUserService().updateRole('generator');
-                   } catch (e) {
-                     debugPrint('Failed updating role: $e');
-                   }
-                   if (context.mounted) context.go(AppRoutes.generatorDashboard);
-                 },
+                onTap: () async {
+                  try {
+                    await AppUserService().updateRole('generator');
+                  } catch (e) {
+                    debugPrint('Failed updating role: $e');
+                  }
+                  if (context.mounted) context.go(AppRoutes.generatorDashboard);
+                },
               ),
               const SizedBox(height: 16),
-
               _RoleCard(
                 icon: Icons.local_shipping_outlined,
                 title: 'Collecteur',
                 subtitle: 'SERVICE DE TRANSPORT',
                 description: 'Je collecte et transporte les déchets.',
-                 onTap: () async {
-                   try {
-                     await AppUserService().updateRole('collector');
-                   } catch (e) {
-                     debugPrint('Failed updating role: $e');
-                   }
-                   if (context.mounted) context.go(AppRoutes.collectorDashboard);
-                 },
+                onTap: () async {
+                  try {
+                    await AppUserService().updateRole('collector');
+                  } catch (e) {
+                    debugPrint('Failed updating role: $e');
+                  }
+                  if (context.mounted) context.go(AppRoutes.collectorDashboard);
+                },
               ),
               const SizedBox(height: 16),
-
               _RoleCard(
                 icon: Icons.factory_outlined,
                 title: 'Centre de Revalorisation',
                 subtitle: 'TRAITEMENT DES DÉCHETS',
                 description: 'Je traite et transforme les déchets.',
-                 onTap: () async {
-                   try {
-                     await AppUserService().updateRole('center');
-                   } catch (e) {
-                     debugPrint('Failed updating role: $e');
-                   }
-                   if (context.mounted) context.go(AppRoutes.centerDashboard);
-                 },
+                onTap: () async {
+                  try {
+                    await AppUserService().updateRole('center');
+                  } catch (e) {
+                    debugPrint('Failed updating role: $e');
+                  }
+                  if (context.mounted) context.go(AppRoutes.centerDashboard);
+                },
               ),
               const SizedBox(height: 32),
-
               if (kIsWeb) ...[
                 FutureBuilder(
                   future: AppUserService().getCurrentProfile(),
@@ -971,30 +1086,47 @@ class RoleSelectionScreen extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: LightModeColors.lightPrimaryContainer,
                             borderRadius: BorderRadius.circular(AppRadius.lg),
-                            border: Border.all(color: LightModeColors.lightSurfaceVariant, width: 1.5),
+                            border: Border.all(
+                                color: LightModeColors.lightSurfaceVariant,
+                                width: 1.5),
                           ),
                           child: Row(
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(10),
-                                decoration: const BoxDecoration(color: LightModeColors.lightSurface, shape: BoxShape.circle),
-                                child: const Icon(Icons.admin_panel_settings_outlined, color: LightModeColors.lightPrimary, size: 22),
+                                decoration: const BoxDecoration(
+                                    color: LightModeColors.lightSurface,
+                                    shape: BoxShape.circle),
+                                child: const Icon(
+                                    Icons.admin_panel_settings_outlined,
+                                    color: LightModeColors.lightPrimary,
+                                    size: 22),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('Administration (Web)', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                                    Text('Administration (Web)',
+                                        style: context.textStyles.titleMedium
+                                            ?.copyWith(
+                                                fontWeight: FontWeight.bold)),
                                     const SizedBox(height: 4),
-                                    Text('Accès réservé aux administrateurs', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
+                                    Text('Accès réservé aux administrateurs',
+                                        style: context.textStyles.bodySmall
+                                            ?.copyWith(
+                                                color: LightModeColors
+                                                    .lightOnSurfaceVariant)),
                                   ],
                                 ),
                               ),
                               FilledButton.icon(
                                 onPressed: () => _openAdminIfAllowed(context),
-                                icon: const Icon(Icons.open_in_new, color: LightModeColors.lightOnPrimary),
-                                label: const Text('Ouvrir', style: TextStyle(color: LightModeColors.lightOnPrimary)),
+                                icon: const Icon(Icons.open_in_new,
+                                    color: LightModeColors.lightOnPrimary),
+                                label: const Text('Ouvrir',
+                                    style: TextStyle(
+                                        color: LightModeColors.lightOnPrimary)),
                               ),
                             ],
                           ),
@@ -1005,10 +1137,12 @@ class RoleSelectionScreen extends StatelessWidget {
                   },
                 ),
               ],
-
               TextButton(
                 onPressed: () {},
-                child: Text('Besoin d\'aide pour choisir ? Contactez-nous', style: TextStyle(color: LightModeColors.lightOnSurfaceVariant, decoration: TextDecoration.underline)),
+                child: Text('Besoin d\'aide pour choisir ? Contactez-nous',
+                    style: TextStyle(
+                        color: LightModeColors.lightOnSurfaceVariant,
+                        decoration: TextDecoration.underline)),
               ),
             ],
           ),
@@ -1043,7 +1177,8 @@ class _RoleCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: LightModeColors.lightSurface,
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: LightModeColors.lightSurfaceVariant, width: 1.5),
+          border: Border.all(
+              color: LightModeColors.lightSurfaceVariant, width: 1.5),
           boxShadow: const [
             BoxShadow(
               color: LightModeColors.lightShadow,
@@ -1068,15 +1203,27 @@ class _RoleCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(title,
+                      style: context.textStyles.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 2),
-                  Text(subtitle, style: context.textStyles.labelSmall?.copyWith(color: LightModeColors.lightPrimary, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                  Text(subtitle,
+                      style: context.textStyles.labelSmall?.copyWith(
+                          color: LightModeColors.lightPrimary,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5)),
                   const SizedBox(height: 8),
-                  Text(description, style: context.textStyles.bodyMedium?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
+                  Text(description,
+                      style: context.textStyles.bodyMedium?.copyWith(
+                          color: LightModeColors.lightOnSurfaceVariant)),
                   const SizedBox(height: 12),
                   Align(
                     alignment: Alignment.centerRight,
-                    child: Text('CHOISIR >', style: TextStyle(color: LightModeColors.lightPrimary, fontWeight: FontWeight.bold, fontSize: 12)),
+                    child: Text('CHOISIR >',
+                        style: TextStyle(
+                            color: LightModeColors.lightPrimary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12)),
                   )
                 ],
               ),

@@ -1,11 +1,14 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 
-/// Generic Supabase configuration template
-/// Replace YOUR_ and YOUR_ with your actual values
+/// Supabase configuration — values injected at build time via --dart-define.
+/// Never hardcode secrets here; see step 3 of the migration for the env setup.
 class SupabaseConfig {
-  static const String supabaseUrl = 'https://rriiyyvxpbxfnpogfbsk.supabase.co';
-  static const String anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJyaWl5eXZ4cGJ4Zm5wb2dmYnNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4MjQwOTEsImV4cCI6MjA5MjQwMDA5MX0.hzsU49ne173qRLRSSE3IxPGpRSAYRUwUQ1St47FaBc0';
+  static const String supabaseUrl = String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: 'https://ixrebfrxhfapndprujvt.supabase.co',
+  );
+  static const String anonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
   static Future<void> initialize() async {
     await Supabase.initialize(

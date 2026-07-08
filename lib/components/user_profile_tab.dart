@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:cleancity/auth/auth_manager.dart';
+import 'package:cleancity/components/app_error_handler.dart';
 import 'package:cleancity/components/app_snackbars.dart';
+import 'package:cleancity/models/app_user.dart';
 import 'package:cleancity/nav.dart';
 import 'package:cleancity/services/app_user_service.dart';
 import 'package:cleancity/services/media_upload_service.dart';
@@ -25,6 +27,8 @@ class _UserProfileTabState extends State<UserProfileTab> {
   String _lang = 'fr';
   bool _saving = false;
   bool _uploadingAvatar = false;
+
+  String _langLabel(String code) => code == 'en' ? 'English' : 'Francais';
 
   @override
   void initState() {
@@ -60,7 +64,7 @@ class _UserProfileTabState extends State<UserProfileTab> {
     } catch (e) {
       debugPrint('Profile save failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, 'Mise à jour du profil échouée.');
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -80,7 +84,9 @@ class _UserProfileTabState extends State<UserProfileTab> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Photo de profil', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                Text('Photo de profil',
+                    style: context.textStyles.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 FilledButton.icon(
                   onPressed: () => context.pop(ImageSource.gallery),
@@ -104,7 +110,8 @@ class _UserProfileTabState extends State<UserProfileTab> {
     setState(() => _uploadingAvatar = true);
     try {
       final picker = ImagePicker();
-      final picked = await picker.pickImage(source: source, imageQuality: 85, maxWidth: 1200);
+      final picked = await picker.pickImage(
+          source: source, imageQuality: 85, maxWidth: 1200);
       if (picked == null) return;
       final url = await MediaUploadService().uploadUserAvatar(picked);
       await AppUserService().updateAvatarUrl(url);
@@ -117,11 +124,11 @@ class _UserProfileTabState extends State<UserProfileTab> {
     } on MediaUploadException catch (e) {
       debugPrint('Avatar upload blocked: $e');
       if (!mounted) return;
-      AppSnackbars.warning(context, e.userMessage);
+      AppSnackbars.warning(context, AppErrorHandler.toUserMessage(e));
     } catch (e) {
       debugPrint('Avatar upload failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, 'Upload échoué.');
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
     } finally {
       if (mounted) setState(() => _uploadingAvatar = false);
     }
@@ -135,7 +142,7 @@ class _UserProfileTabState extends State<UserProfileTab> {
     } catch (e) {
       debugPrint('Logout failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, 'Déconnexion échouée.');
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
     }
   }
 
@@ -147,7 +154,9 @@ class _UserProfileTabState extends State<UserProfileTab> {
         return ListView(
           padding: AppSpacing.paddingLg,
           children: [
-            Text('Profil', style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            Text('Profil',
+                style: context.textStyles.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             FutureBuilder(
               future: AppUserService().getCurrentProfile(),
@@ -156,27 +165,46 @@ class _UserProfileTabState extends State<UserProfileTab> {
                 final avatarUrl = (u?.avatarUrl ?? '').trim();
                 return Container(
                   padding: AppSpacing.paddingLg,
-                  decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: LightModeColors.lightSurfaceVariant)),
+                  decoration: BoxDecoration(
+                      color: LightModeColors.lightSurface,
+                      borderRadius: BorderRadius.circular(AppRadius.lg),
+                      border: Border.all(
+                          color: LightModeColors.lightSurfaceVariant)),
                   child: Row(
                     children: [
                       Stack(
                         children: [
                           CircleAvatar(
                             radius: 26,
-                            backgroundColor: LightModeColors.lightPrimaryContainer,
-                            backgroundImage: avatarUrl.isEmpty ? null : NetworkImage(avatarUrl),
-                            child: avatarUrl.isEmpty ? const Icon(Icons.person, color: LightModeColors.lightPrimary) : null,
+                            backgroundColor:
+                                LightModeColors.lightPrimaryContainer,
+                            backgroundImage: avatarUrl.isEmpty
+                                ? null
+                                : NetworkImage(avatarUrl),
+                            child: avatarUrl.isEmpty
+                                ? const Icon(Icons.person,
+                                    color: LightModeColors.lightPrimary)
+                                : null,
                           ),
                           Positioned(
                             right: -4,
                             bottom: -4,
                             child: IconButton(
                               tooltip: 'Changer la photo',
-                              onPressed: _uploadingAvatar ? null : _changeAvatar,
-                              style: IconButton.styleFrom(backgroundColor: LightModeColors.lightSurface, padding: const EdgeInsets.all(6)),
+                              onPressed:
+                                  _uploadingAvatar ? null : _changeAvatar,
+                              style: IconButton.styleFrom(
+                                  backgroundColor: LightModeColors.lightSurface,
+                                  padding: const EdgeInsets.all(6)),
                               icon: _uploadingAvatar
-                                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                                  : const Icon(Icons.edit, size: 18, color: LightModeColors.lightPrimary),
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2))
+                                  : const Icon(Icons.edit,
+                                      size: 18,
+                                      color: LightModeColors.lightPrimary),
                             ),
                           ),
                         ],
@@ -186,16 +214,38 @@ class _UserProfileTabState extends State<UserProfileTab> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text((u?.fullName?.trim().isNotEmpty ?? false) ? u!.fullName!.trim() : 'Utilisateur', style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                            Text(
+                              (u != null)
+                                  ? u.displayNameCapitalized()
+                                  : 'Utilisateur',
+                              style: context.textStyles.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                             const SizedBox(height: 2),
-                            Text(u?.email ?? '', style: context.textStyles.bodySmall?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
+                            Text(
+                              u?.email ?? '',
+                              style: context.textStyles.bodySmall?.copyWith(
+                                  color: LightModeColors.lightOnSurfaceVariant),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ],
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(color: LightModeColors.lightPrimaryContainer, borderRadius: BorderRadius.circular(999)),
-                        child: Text((u?.role ?? 'generator').toUpperCase(), style: context.textStyles.labelSmall?.copyWith(color: LightModeColors.lightPrimary, fontWeight: FontWeight.bold)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                            color: LightModeColors.lightPrimaryContainer,
+                            borderRadius: BorderRadius.circular(999)),
+                        child: Text(
+                          (u != null) ? u.roleLabelFr() : 'GENERATEUR',
+                          style: context.textStyles.labelSmall?.copyWith(
+                              color: LightModeColors.lightPrimary,
+                              fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ],
                   ),
@@ -203,28 +253,32 @@ class _UserProfileTabState extends State<UserProfileTab> {
               },
             ),
             const SizedBox(height: 16),
-            TextField(controller: _fullNameCtrl, decoration: const InputDecoration(labelText: 'Nom complet')),
+            TextField(
+                controller: _fullNameCtrl,
+                decoration: const InputDecoration(labelText: 'Nom complet')),
             const SizedBox(height: 12),
-            TextField(controller: _phoneCtrl, decoration: const InputDecoration(labelText: 'Téléphone (E.164)'), keyboardType: TextInputType.phone),
+            TextField(
+                controller: _phoneCtrl,
+                decoration:
+                    const InputDecoration(labelText: 'Téléphone (E.164)'),
+                keyboardType: TextInputType.phone),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _lang,
-              items: const [
-                DropdownMenuItem(value: 'fr', child: Text('Français (principal)')),
-                DropdownMenuItem(value: 'en', child: Text('English')),
-              ],
-              onChanged: (v) {
-                if (v == null) return;
-                setState(() => _lang = v);
-              },
-              decoration: const InputDecoration(labelText: 'Langue'),
+            _LanguageSelector(
+              currentValue: _lang,
+              labelFor: _langLabel,
+              onChanged: (v) => setState(() => _lang = v),
             ),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _saving ? null : _save,
-                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text(_saving ? 'Sauvegarde...' : 'Sauvegarder'), const SizedBox(width: 8), Icon(_saving ? Icons.hourglass_top : Icons.save)]),
+                child:
+                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Text(_saving ? 'Sauvegarde...' : 'Sauvegarder'),
+                  const SizedBox(width: 8),
+                  Icon(_saving ? Icons.hourglass_top : Icons.save)
+                ]),
               ),
             ),
             const SizedBox(height: 12),
@@ -233,13 +287,52 @@ class _UserProfileTabState extends State<UserProfileTab> {
               child: OutlinedButton.icon(
                 onPressed: _logout,
                 icon: const Icon(Icons.logout, color: Colors.red),
-                label: const Text('Se déconnecter', style: TextStyle(color: Colors.red)),
+                label: const Text('Se déconnecter',
+                    style: TextStyle(color: Colors.red)),
               ),
             ),
             const SizedBox(height: 80),
           ],
         );
       },
+    );
+  }
+}
+
+class _LanguageSelector extends StatelessWidget {
+  const _LanguageSelector({
+    required this.currentValue,
+    required this.onChanged,
+    required this.labelFor,
+  });
+
+  final String currentValue;
+  final ValueChanged<String> onChanged;
+  final String Function(String code) labelFor;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      tooltip: 'Choisir la langue',
+      onSelected: onChanged,
+      itemBuilder: (context) => const [
+        PopupMenuItem<String>(value: 'fr', child: Text('Francais')),
+        PopupMenuItem<String>(value: 'en', child: Text('English')),
+      ],
+      child: InputDecorator(
+        decoration: const InputDecoration(labelText: 'Langue'),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                labelFor(currentValue),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+            const Icon(Icons.keyboard_arrow_down_rounded),
+          ],
+        ),
+      ),
     );
   }
 }
