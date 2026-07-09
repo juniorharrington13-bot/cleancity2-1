@@ -16,7 +16,6 @@ class PayoutRequestService {
     if (uid == null) return const [];
     try {
       final rows = await _client.from('payout_requests').select('*').eq('user_id', uid).order('created_at', ascending: false).limit(limit);
-      if (rows is! List) return const [];
       return rows.whereType<Map>().map((e) => PayoutRequest.fromJson(Map<String, dynamic>.from(e))).toList(growable: false);
     } on PostgrestException catch (e) {
       debugPrint('PayoutRequestService.listMyRequests failed: ${e.message}');

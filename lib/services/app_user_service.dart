@@ -134,7 +134,6 @@ class AppUserService {
       }
 
       final res = await req.order('created_at', ascending: false).range(offset, offset + limit - 1);
-      if (res is! List) return const [];
       return res
           .whereType<Map>()
           .map((e) => AppUser.fromJson(Map<String, dynamic>.from(e)))

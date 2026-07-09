@@ -1616,39 +1616,6 @@ class PickedImageThumb extends StatelessWidget {
   }
 }
 
-class _RequestPickupMap extends StatelessWidget {
-  const _RequestPickupMap({required this.address});
-  final Map<String, dynamic>? address;
-
-  static const LatLng _douala = LatLng(4.0511, 9.7679);
-
-  @override
-  Widget build(BuildContext context) {
-    final latRaw = address?['latitude'];
-    final lngRaw = address?['longitude'];
-    final hasCoords = latRaw is num && lngRaw is num;
-    final center =
-        hasCoords ? LatLng(latRaw.toDouble(), lngRaw.toDouble()) : _douala;
-
-    final markers = <MapPin>[
-      if (hasCoords) MapPin(point: center, color: LightModeColors.lightPrimary, radius: 9),
-    ];
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: SizedBox(
-        height: 180,
-        width: double.infinity,
-        child: CleanCityMapView(
-          center: center,
-          zoom: hasCoords ? 15 : 12,
-          markers: markers,
-        ),
-      ),
-    );
-  }
-}
-
 // --- REQUEST DETAILS SCREEN ---
 class RequestDetailsScreen extends StatefulWidget {
   const RequestDetailsScreen({super.key, this.requestId});
