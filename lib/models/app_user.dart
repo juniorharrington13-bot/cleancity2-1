@@ -19,6 +19,7 @@ class AppUser {
     this.fullName,
     this.avatarUrl,
     this.roleConfirmedAt,
+    this.capacityKg,
   });
 
   final String id;
@@ -31,6 +32,7 @@ class AppUser {
   final String? fullName;
   final String? avatarUrl;
   final DateTime? roleConfirmedAt;
+  final double? capacityKg;
 
   /// Whether this account has already locked in a role. Once true, only an
   /// admin can change `role` (enforced server-side by enforce_role_change()).
@@ -47,6 +49,7 @@ class AppUser {
     String? fullName,
     String? avatarUrl,
     DateTime? roleConfirmedAt,
+    double? capacityKg,
   }) =>
       AppUser(
         id: id ?? this.id,
@@ -59,6 +62,7 @@ class AppUser {
         fullName: fullName ?? this.fullName,
         avatarUrl: avatarUrl ?? this.avatarUrl,
         roleConfirmedAt: roleConfirmedAt ?? this.roleConfirmedAt,
+        capacityKg: capacityKg ?? this.capacityKg,
       );
 
   Map<String, dynamic> toJson() => {
@@ -72,6 +76,7 @@ class AppUser {
         'full_name': fullName,
         'avatar_url': avatarUrl,
         'role_confirmed_at': roleConfirmedAt?.toIso8601String(),
+        'capacity_kg': capacityKg,
       };
 
   static AppUser fromJson(Map<String, dynamic> json) => AppUser(
@@ -87,6 +92,7 @@ class AppUser {
         fullName: json['full_name'] as String?,
         avatarUrl: json['avatar_url'] as String?,
         roleConfirmedAt: DateTime.tryParse((json['role_confirmed_at'] ?? '') as String),
+        capacityKg: json['capacity_kg'] is num ? (json['capacity_kg'] as num).toDouble() : null,
       );
 }
 

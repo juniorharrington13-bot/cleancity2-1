@@ -25,8 +25,10 @@ class _UserProfileTabState extends State<UserProfileTab> {
   late Future _future;
   final _fullNameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _capacityCtrl = TextEditingController();
   bool _saving = false;
   bool _uploadingAvatar = false;
+  String _role = 'generator';
 
   String _langLabel(String code) => code == 'en' ? 'English' : 'Français';
 
@@ -40,6 +42,8 @@ class _UserProfileTabState extends State<UserProfileTab> {
     final profile = await AppUserService().getCurrentProfile();
     _fullNameCtrl.text = profile?.fullName ?? '';
     _phoneCtrl.text = profile?.phoneE164 ?? '';
+    _capacityCtrl.text = profile?.capacityKg == null ? '' : profile!.capacityKg!.toStringAsFixed(0);
+    if (mounted) setState(() => _role = profile?.role ?? 'generator');
     // The app's active language already reflects the saved preference (it was
     // reconciled at login); this just keeps the two in sync if they ever drift.
     if (mounted && profile?.preferredLanguage != null) {
@@ -51,6 +55,7 @@ class _UserProfileTabState extends State<UserProfileTab> {
   void dispose() {
     _fullNameCtrl.dispose();
     _phoneCtrl.dispose();
+    _capacityCtrl.dispose();
     super.dispose();
   }
 
@@ -58,9 +63,11 @@ class _UserProfileTabState extends State<UserProfileTab> {
     if (_saving) return;
     setState(() => _saving = true);
     try {
+      final capacityRaw = _capacityCtrl.text.trim().replaceAll(',', '.');
       await AppUserService().updateProfile(
         fullName: _fullNameCtrl.text.trim(),
         phoneE164: _phoneCtrl.text.trim(),
+        capacityKg: _role == 'center' ? (double.tryParse(capacityRaw) ?? 0) : null,
       );
       if (!mounted) return;
       AppSnackbars.success(context, context.l10n.profileUpdated);
@@ -266,6 +273,16 @@ class _UserProfileTabState extends State<UserProfileTab> {
                     InputDecoration(labelText: context.l10n.profilePhoneLabel),
                 keyboardType: TextInputType.phone),
             const SizedBox(height: 12),
+            if (_role == 'center') ...[
+              TextField(
+                  controller: _capacityCtrl,
+                  decoration: InputDecoration(
+                      labelText: context.l10n.centerCapacityLabel,
+                      suffixText: 'kg'),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true)),
+              const SizedBox(height: 12),
+            ],
             Consumer<LocaleProvider>(
               builder: (context, localeProvider, _) => _LanguageSelector(
                 currentValue: localeProvider.locale.languageCode,

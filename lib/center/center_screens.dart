@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter/foundation.dart';
 
 import 'package:cleancity/components/app_snackbars.dart';
 import 'package:cleancity/components/user_profile_tab.dart';
 import 'package:cleancity/chat/chat_screens.dart';
 import 'package:cleancity/nav.dart';
 import 'package:cleancity/services/app_user_service.dart';
+import 'package:cleancity/services/center_stats_service.dart';
 import 'package:cleancity/services/chat_service.dart';
 import 'package:cleancity/services/waste_request_service.dart';
 import 'package:cleancity/theme.dart';
@@ -108,191 +108,243 @@ class _CenterDashboardState extends State<CenterDashboard> {
     );
   }
 
-  Widget _buildSummaryCard(
-      IconData icon, String title, String value, String change) {
-    return Container(
-      padding: AppSpacing.paddingMd,
-      decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade200),
-          borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: LightModeColors.lightPrimary, size: 20),
-          const SizedBox(height: 12),
-          Text(title, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-          const SizedBox(height: 4),
-          Text(value,
-              style:
-                  const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              const Icon(Icons.arrow_upward, size: 10, color: Colors.green),
-              Text(change,
-                  style: const TextStyle(
-                      fontSize: 10,
-                      color: Colors.green,
-                      fontWeight: FontWeight.bold)),
-            ],
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDeliveryCard(
-      String truck, String type, String status, String time, Color color) {
-    return Container(
-      padding: AppSpacing.paddingMd,
-      decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade200),
-          borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(8)),
-            child: const Icon(Icons.local_shipping_outlined,
-                color: Colors.black54),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(truck,
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 2),
-                      decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4)),
-                      child: Text(type,
-                          style: TextStyle(
-                              color: color,
-                              fontSize: 8,
-                              fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(status,
-                        style:
-                            const TextStyle(fontSize: 10, color: Colors.grey)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Text(time, style: const TextStyle(fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
 }
 
-class _CenterMainTab extends StatelessWidget {
+class _CenterMainTab extends StatefulWidget {
   const _CenterMainTab();
 
   @override
+  State<_CenterMainTab> createState() => _CenterMainTabState();
+}
+
+class _CenterMainTabState extends State<_CenterMainTab> {
+  final CenterStatsService _statsService = CenterStatsService();
+
+  late Future<CenterDashboardStats> _statsFuture;
+  late Future<List<CenterExpectedDelivery>> _deliveriesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  void _refresh() {
+    setState(() {
+      _statsFuture = _statsService.getDashboardStats();
+      _deliveriesFuture = _statsService.getExpectedDeliveries();
+    });
+  }
+
+  Color _colorForType(String type) {
+    switch (type) {
+      case 'plastic':
+        return Colors.blue;
+      case 'organic':
+        return Colors.orange;
+      case 'glass':
+        return Colors.teal;
+      case 'paper':
+        return Colors.brown;
+      case 'metal':
+        return Colors.grey;
+      case 'ewaste':
+        return Colors.purple;
+      default:
+        return Colors.green;
+    }
+  }
+
+  String _changeSubtitle(double? percent) {
+    if (percent == null) return context.l10n.adminStatNotEnoughData;
+    final sign = percent >= 0 ? '+' : '';
+    return context.l10n.adminStatVsLastMonth('$sign${percent.toStringAsFixed(1)}%');
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: AppSpacing.paddingLg,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => context.push(AppRoutes.receptionForm),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+    return RefreshIndicator(
+      onRefresh: () async => _refresh(),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: AppSpacing.paddingLg,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => context.push(AppRoutes.receptionForm),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.qr_code_scanner),
+                    const SizedBox(width: 8),
+                    Text(context.l10n.centerQuickReception)
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(context.l10n.centerMonthlySummary,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                IconButton(
+                    onPressed: _refresh,
+                    icon: Icon(Icons.refresh, color: LightModeColors.lightPrimary)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            FutureBuilder<CenterDashboardStats>(
+              future: _statsFuture,
+              builder: (context, snap) {
+                final stats = snap.data;
+                final loading = snap.connectionState == ConnectionState.waiting;
+                return Row(
+                  children: [
+                    Expanded(
+                        child: _SummaryCard(
+                            icon: Icons.scale,
+                            title: context.l10n.centerTotalVolumeProcessed,
+                            value: loading || stats == null ? '—' : '${stats.processedKg.toStringAsFixed(1)} kg',
+                            change: loading || stats == null ? null : _changeSubtitle(stats.processedKgChangePercent))),
+                    const SizedBox(width: 16),
+                    Expanded(
+                        child: _SummaryCard(
+                            icon: Icons.recycling,
+                            title: context.l10n.centerRecoveryRate,
+                            value: loading || stats == null || stats.recoveryRatePercent == null
+                                ? '—'
+                                : '${stats.recoveryRatePercent!.toStringAsFixed(0)}%',
+                            change: null)),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 32),
+            Text(context.l10n.centerExpectedDeliveries,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 16),
+            FutureBuilder<List<CenterExpectedDelivery>>(
+              future: _deliveriesFuture,
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const LinearProgressIndicator();
+                }
+                if (snap.hasError) {
+                  return Text(context.l10n.centerDeliveriesLoadFailed,
+                      style: const TextStyle(color: Colors.red));
+                }
+                final deliveries = snap.data ?? const <CenterExpectedDelivery>[];
+                if (deliveries.isEmpty) {
+                  return _CenterEmptyStateCard(
+                      icon: Icons.local_shipping_outlined,
+                      title: context.l10n.centerNoDeliveriesTitle,
+                      subtitle: context.l10n.centerNoDeliveriesSubtitle);
+                }
+                return Column(
+                  children: deliveries.map((d) {
+                    final location = [d.neighborhood, d.city]
+                        .where((s) => s.trim().isNotEmpty)
+                        .join(', ');
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => context.push(AppRoutes.receptionForm, extra: d.requestId),
+                        child: _DeliveryCard(
+                          truck: d.requestId.isEmpty
+                              ? '—'
+                              : 'REQ-${d.requestId.substring(0, 6).toUpperCase()}',
+                          type: d.wasteType.toUpperCase(),
+                          status:
+                              '${_statusLabel(context, d.status)} • ${d.quantityEstimateKg.toStringAsFixed(1)} kg${location.isEmpty ? '' : ' • $location'}',
+                          time: context.l10n.commonOpen,
+                          color: _colorForType(d.wasteType),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+            const SizedBox(height: 32),
+            Container(
+              padding: AppSpacing.paddingLg,
+              decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(16)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.qr_code_scanner),
-                  const SizedBox(width: 8),
-                  Text(context.l10n.centerQuickReception)
+                  Text(context.l10n.centerStockCapacity,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16)),
+                  const SizedBox(height: 12),
+                  FutureBuilder<CenterDashboardStats>(
+                    future: _statsFuture,
+                    builder: (context, snap) {
+                      final stats = snap.data;
+                      final loading = snap.connectionState == ConnectionState.waiting;
+                      if (loading || stats == null) {
+                        return const Text('—',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20));
+                      }
+
+                      final ratio = stats.capacityFillRatio;
+                      if (ratio == null) {
+                        // No capacity configured yet: show the raw pending
+                        // volume instead of a fabricated percentage.
+                        final text = stats.pendingSortingCount == 0
+                            ? context.l10n.centerNoPendingSorting
+                            : context.l10n.centerPendingSortingValue(
+                                stats.pendingSortingKg.toStringAsFixed(1),
+                                stats.pendingSortingCount);
+                        return Text(text,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20));
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${(ratio * 100).toStringAsFixed(0)}%',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 20)),
+                          const SizedBox(height: 8),
+                          LinearProgressIndicator(
+                              value: ratio,
+                              backgroundColor: Colors.white24,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                  LightModeColors.lightPrimary)),
+                          const SizedBox(height: 4),
+                          Text(
+                              '${stats.pendingSortingKg.toStringAsFixed(1)} / ${stats.capacityKg!.toStringAsFixed(0)} kg',
+                              style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Text(context.l10n.centerSortingZoneTracking,
+                      style: const TextStyle(color: Colors.white70, fontSize: 12)),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 32),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(context.l10n.centerMonthlySummary,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              Text(context.l10n.centerDataInProgress,
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                  child: _SummaryCard(
-                      icon: Icons.scale,
-                      title: context.l10n.centerTotalVolumeProcessed,
-                      value: '—',
-                      change: '—')),
-              const SizedBox(width: 16),
-              Expanded(
-                  child: _SummaryCard(
-                      icon: Icons.recycling,
-                      title: context.l10n.centerRecoveryRate,
-                      value: '—',
-                      change: '—')),
-            ],
-          ),
-          const SizedBox(height: 32),
-          Text(context.l10n.centerExpectedDeliveries,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 16),
-          _DeliveryCard(
-              truck: 'CAM-—',
-              type: context.l10n.centerWasteTypePlasticShort,
-              status: context.l10n.statusPending,
-              time: '—',
-              color: Colors.blue),
-          const SizedBox(height: 12),
-          _DeliveryCard(
-              truck: 'CAM-—',
-              type: context.l10n.centerWasteTypeOrganicShort,
-              status: context.l10n.statusPending,
-              time: '—',
-              color: Colors.orange),
-          const SizedBox(height: 32),
-          Container(
-            padding: AppSpacing.paddingLg,
-            decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
-                borderRadius: BorderRadius.circular(16)),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(context.l10n.centerStockCapacity,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16)),
-                const SizedBox(height: 16),
-                LinearProgressIndicator(
-                    value: 0.35,
-                    backgroundColor: Colors.white24,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                        LightModeColors.lightPrimary)),
-                const SizedBox(height: 8),
-                Text(context.l10n.centerSortingZoneTracking,
-                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 80),
-        ],
+            const SizedBox(height: 80),
+          ],
+        ),
       ),
     );
   }
@@ -622,7 +674,7 @@ class _SummaryCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String value;
-  final String change;
+  final String? change;
 
   @override
   Widget build(BuildContext context) {
@@ -638,12 +690,14 @@ class _SummaryCard extends StatelessWidget {
         const SizedBox(height: 4),
         Text(value,
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Row(children: [
-          const Icon(Icons.trending_up, size: 10, color: Colors.grey),
-          const SizedBox(width: 4),
-          Text(change, style: const TextStyle(fontSize: 10, color: Colors.grey))
-        ])
+        if (change != null) ...[
+          const SizedBox(height: 4),
+          Row(children: [
+            const Icon(Icons.trending_up, size: 10, color: Colors.grey),
+            const SizedBox(width: 4),
+            Text(change!, style: const TextStyle(fontSize: 10, color: Colors.grey))
+          ]),
+        ],
       ]),
     );
   }
