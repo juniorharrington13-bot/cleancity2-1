@@ -20,7 +20,7 @@ create type public.thread_kind as enum ('request', 'direct');
 -- 2. HELPER FUNCTIONS (SECURITY DEFINER pour eviter la recursion RLS)
 -- ---------------------------------------------------------------------------
 create or replace function public.set_updated_at()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql set search_path = public as $$
 begin
   new.updated_at = now();
   return new;
@@ -47,6 +47,36 @@ language sql stable security definer set search_path = public as $$
     where p.request_id = p_request_id
       and (p.collector_id = auth.uid() or p.center_id = auth.uid())
   ) or public.current_user_role() = 'admin';
+$$;
+
+-- A user can set their role once (self-selection, e.g. role-selection screen).
+-- After that, only an admin can change it.
+create or replace function public.enforce_role_change()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.role is distinct from old.role then
+    if public.current_user_role() = 'admin' then
+      if new.role_confirmed_at is null then
+        new.role_confirmed_at = now();
+      end if;
+    elsif old.role_confirmed_at is null then
+      new.role_confirmed_at = now();
+    else
+      raise exception 'ROLE_ALREADY_CONFIRMED: seul un administrateur peut modifier ce role.';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.is_thread_member(p_thread_id uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.chat_thread_members m
+    where m.thread_id = p_thread_id and m.user_id = auth.uid()
+  );
 $$;
 
 -- Provisionne automatiquement public.users a la creation d'un auth.users
@@ -81,6 +111,12 @@ create table public.users (
   phone_e164 text not null default '',
   preferred_language text not null default 'fr',
   avatar_url text,
+  -- Set on first role assignment (self-selection or admin). Once set, only an
+  -- admin can change `role` again (see enforce_role_change trigger below).
+  role_confirmed_at timestamptz,
+  -- Max storage/sorting-zone capacity in kg. Only meaningful for center
+  -- accounts; set by the center itself in their profile.
+  capacity_kg numeric check (capacity_kg is null or capacity_kg >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -226,6 +262,8 @@ create index chat_messages_thread_idx on public.chat_messages (thread_id, create
 -- ---------------------------------------------------------------------------
 create trigger set_updated_at before update on public.users
   for each row execute function public.set_updated_at();
+create trigger enforce_role_change before update on public.users
+  for each row execute function public.enforce_role_change();
 create trigger set_updated_at before update on public.waste_requests
   for each row execute function public.set_updated_at();
 create trigger set_updated_at before update on public.pickups
@@ -301,7 +339,7 @@ create policy waste_requests_insert_self on public.waste_requests
 create policy waste_requests_update_owner_or_agent on public.waste_requests
   for update to authenticated using (
     generator_id = auth.uid()
-    or exists (select 1 from public.pickups p where p.request_id = id and p.collector_id = auth.uid())
+    or exists (select 1 from public.pickups p where p.request_id = waste_requests.id and p.collector_id = auth.uid())
     or public.current_user_role() in ('center', 'admin')
   );
 
@@ -354,28 +392,38 @@ create policy chat_threads_select_member on public.chat_threads
   for select to authenticated using (
     exists (select 1 from public.chat_thread_members m where m.thread_id = id and m.user_id = auth.uid())
   );
-create policy chat_threads_insert_authenticated on public.chat_threads
-  for insert to authenticated with check (true);
+-- A request-thread requires the caller to be a participant of that request;
+-- a direct-thread requires the caller's id to be encoded in direct_key
+-- (format "a_b"). Avoids a bare `with check (true)` on thread creation.
+create policy chat_threads_insert_participant on public.chat_threads
+  for insert to authenticated with check (
+    (kind = 'request' and public.is_request_participant(request_id))
+    or (kind = 'direct' and (
+      direct_key like (auth.uid()::text || '\_%')
+      or direct_key like ('%\_' || auth.uid()::text)
+    ))
+  );
 
+-- Membership checks go through is_thread_member() (SECURITY DEFINER) instead
+-- of a raw EXISTS on chat_thread_members from within its own table policy,
+-- which would cause "infinite recursion detected in policy" (42P17).
 create policy chat_thread_members_select_member on public.chat_thread_members
   for select to authenticated using (
-    user_id = auth.uid()
-    or exists (select 1 from public.chat_thread_members m where m.thread_id = thread_id and m.user_id = auth.uid())
+    user_id = auth.uid() or public.is_thread_member(thread_id)
   );
 create policy chat_thread_members_insert_member on public.chat_thread_members
   for insert to authenticated with check (
-    user_id = auth.uid()
-    or exists (select 1 from public.chat_thread_members m where m.thread_id = thread_id and m.user_id = auth.uid())
+    user_id = auth.uid() or public.is_thread_member(thread_id)
   );
 
 create policy chat_messages_select_member on public.chat_messages
   for select to authenticated using (
-    exists (select 1 from public.chat_thread_members m where m.thread_id = thread_id and m.user_id = auth.uid())
+    exists (select 1 from public.chat_thread_members m where m.thread_id = chat_messages.thread_id and m.user_id = auth.uid())
   );
 create policy chat_messages_insert_member on public.chat_messages
   for insert to authenticated with check (
     sender_id = auth.uid()
-    and exists (select 1 from public.chat_thread_members m where m.thread_id = thread_id and m.user_id = auth.uid())
+    and exists (select 1 from public.chat_thread_members m where m.thread_id = chat_messages.thread_id and m.user_id = auth.uid())
   );
 
 -- ---------------------------------------------------------------------------
@@ -388,6 +436,12 @@ on conflict (id) do nothing;
 insert into storage.buckets (id, name, public)
 values ('request_photos', 'request_photos', false)
 on conflict (id) do nothing;
+
+-- RLS est active par defaut sur storage.buckets sans policy : sans ceci,
+-- storage.listBuckets() (utilise par MediaUploadService._pickBucket) renvoie
+-- une liste vide et toute publication de demande echoue avec bucketMissing.
+create policy storage_buckets_authenticated_read on storage.buckets
+  for select to authenticated using (true);
 
 -- user_uploads/avatars/{uid}/... : lecture publique, ecriture par le proprietaire.
 create policy storage_user_uploads_public_read on storage.objects

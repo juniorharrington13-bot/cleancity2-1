@@ -66,7 +66,26 @@ class AppUserService {
     }
   }
 
-  Future<void> updateProfile({String? fullName, String? phoneE164, String? preferredLanguage}) async {
+  /// Admin-only: change another user's role. Regular users can only set their
+  /// own role once (see enforce_role_change() trigger / RLS on `users`).
+  Future<void> adminUpdateUserRole({required String userId, required String role}) async {
+    try {
+      await _client.from('users').update({
+        'role': role,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', userId);
+    } catch (e) {
+      debugPrint('AppUserService.adminUpdateUserRole failed: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateProfile({
+    String? fullName,
+    String? phoneE164,
+    String? preferredLanguage,
+    double? capacityKg,
+  }) async {
     final uid = currentUserId;
     if (uid == null) return;
     try {
@@ -74,6 +93,7 @@ class AppUserService {
       if (fullName != null) data['full_name'] = fullName;
       if (phoneE164 != null) data['phone_e164'] = phoneE164;
       if (preferredLanguage != null) data['preferred_language'] = preferredLanguage;
+      if (capacityKg != null) data['capacity_kg'] = capacityKg;
       await _client.from('users').update(data).eq('id', uid);
     } catch (e) {
       debugPrint('AppUserService.updateProfile failed: $e');

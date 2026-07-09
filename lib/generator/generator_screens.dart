@@ -1144,27 +1144,34 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
         longitude: _longitude,
       );
 
+      var photoFailures = 0;
       if (_photos.isNotEmpty) {
         final uploader = MediaUploadService();
         final service = WasteRequestService();
         for (final p in _photos) {
-          final url = await uploader.uploadWasteRequestPhoto(
-              requestId: req.id, file: p);
-          await service.addPhotoUrl(requestId: req.id, url: url);
+          try {
+            final url = await uploader.uploadWasteRequestPhoto(
+                requestId: req.id, file: p);
+            await service.addPhotoUrl(requestId: req.id, url: url);
+          } catch (e) {
+            // The request itself is already published; a photo failure
+            // shouldn't block that or lose the remaining photos.
+            debugPrint('Publish request photo upload failed: $e');
+            photoFailures++;
+          }
         }
       }
 
       if (!mounted) return;
-      AppSnackbars.success(context, context.l10n.generatorRequestPublished);
+      if (photoFailures > 0) {
+        AppSnackbars.warning(
+            context,
+            context.l10n
+                .generatorRequestPublishedPhotosFailed(photoFailures, _photos.length));
+      } else {
+        AppSnackbars.success(context, context.l10n.generatorRequestPublished);
+      }
       context.pop();
-    } on StorageException catch (e) {
-      debugPrint('Publish request upload failed: $e');
-      if (!mounted) return;
-      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
-    } on MediaUploadException catch (e) {
-      debugPrint('Publish request upload blocked: $e');
-      if (!mounted) return;
-      AppSnackbars.warning(context, AppErrorHandler.toUserMessage(context, e));
     } catch (e) {
       debugPrint('Publish request failed: $e');
       if (!mounted) return;

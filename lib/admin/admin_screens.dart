@@ -5,6 +5,8 @@ import 'package:cleancity/models/app_user.dart';
 import 'package:cleancity/components/app_error_handler.dart';
 import 'package:cleancity/components/app_snackbars.dart';
 import 'package:cleancity/services/app_user_service.dart';
+import 'package:cleancity/services/admin_stats_service.dart';
+import 'package:cleancity/constants/waste_rates.dart';
 import '../theme.dart';
 
 // --- ADMIN WEB DASHBOARD ---
@@ -231,8 +233,33 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
 // --- SUBVIEWS ---
 
-class DashboardView extends StatelessWidget {
+class DashboardView extends StatefulWidget {
   const DashboardView({super.key});
+
+  @override
+  State<DashboardView> createState() => _DashboardViewState();
+}
+
+class _DashboardViewState extends State<DashboardView> {
+  final AdminStatsService _statsService = AdminStatsService();
+
+  late Future<AdminDashboardStats> _statsFuture;
+  late Future<List<AdminRecentOperation>> _recentOpsFuture;
+  late Future<Map<String, int>> _cityCountsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  void _refresh() {
+    setState(() {
+      _statsFuture = _statsService.getDashboardStats();
+      _recentOpsFuture = _statsService.getRecentOperations();
+      _cityCountsFuture = _statsService.getActiveRequestCountsByCity();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -247,44 +274,94 @@ class DashboardView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                children: [
-                  SizedBox(
-                      width: statCardWidth,
-                      child: _buildStatCard(context.l10n.adminStatWasteCollected, '1,250',
-                          context.l10n.adminUnitTonnes, context.l10n.adminStatVsLastMonth('+12.5%'), Colors.green)),
-                  SizedBox(
-                      width: statCardWidth,
-                      child: _buildStatCard(context.l10n.adminStatActiveCollectors, '482', '',
-                          context.l10n.adminStatVsLastMonth('+5.2%'), Colors.blue)),
-                  SizedBox(
-                      width: statCardWidth,
-                      child: _buildStatCard(context.l10n.adminStatRecoveryRate, '64%', '',
-                          context.l10n.adminStatRecoveryGoal, Colors.orange)),
-                  SizedBox(
-                      width: statCardWidth,
-                      child: _buildStatCard(context.l10n.adminStatTotalRevenue, '45.0M', 'XAF',
-                          context.l10n.adminStatVsLastMonth('+1.2%'), Colors.purple)),
-                ],
+              FutureBuilder<AdminDashboardStats>(
+                future: _statsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return _StatsErrorBanner(
+                        error: snapshot.error, onRetry: _refresh);
+                  }
+                  final stats = snapshot.data;
+                  return Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    children: [
+                      SizedBox(
+                          width: statCardWidth,
+                          child: _buildStatCard(
+                              context.l10n.adminStatWasteCollected,
+                              stats == null ? '—' : _formatNumber(stats.collectedKg, decimals: stats.collectedKg < 10 ? 1 : 0),
+                              context.l10n.adminUnitKg,
+                              _changeSubtitle(context, stats?.collectedKgChangePercent),
+                              Colors.green)),
+                      SizedBox(
+                          width: statCardWidth,
+                          child: _buildStatCard(
+                              context.l10n.adminStatActiveCollectors,
+                              stats == null ? '—' : '${stats.activeCollectors}',
+                              '',
+                              _changeSubtitle(context, stats?.activeCollectorsChangePercent),
+                              Colors.blue)),
+                      SizedBox(
+                          width: statCardWidth,
+                          child: _buildStatCard(
+                              context.l10n.adminStatRecoveryRate,
+                              stats?.recoveryRatePercent == null
+                                  ? '—'
+                                  : '${stats!.recoveryRatePercent!.toStringAsFixed(0)}%',
+                              '',
+                              context.l10n.adminStatRecoveryGoal,
+                              Colors.orange)),
+                      SizedBox(
+                          width: statCardWidth,
+                          child: _buildStatCard(
+                              context.l10n.adminStatTotalRevenue,
+                              stats == null ? '—' : _formatNumber(stats.revenueXaf),
+                              'XAF',
+                              _changeSubtitle(context, stats?.revenueXafChangePercent),
+                              Colors.purple)),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 24),
               if (isWide)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(flex: 2, child: _HeatmapPanel()),
+                    Expanded(
+                        flex: 2,
+                        child: FutureBuilder<Map<String, int>>(
+                          future: _cityCountsFuture,
+                          builder: (context, snapshot) => _HeatmapPanel(
+                              cityCounts: snapshot.data, onRefresh: _refresh),
+                        )),
                     const SizedBox(width: 24),
-                    Expanded(flex: 1, child: _RecentOperationsPanel()),
+                    Expanded(
+                        flex: 1,
+                        child: FutureBuilder<List<AdminRecentOperation>>(
+                          future: _recentOpsFuture,
+                          builder: (context, snapshot) => _RecentOperationsPanel(
+                              operations: snapshot.data,
+                              error: snapshot.hasError ? snapshot.error : null),
+                        )),
                   ],
                 )
               else
                 Column(
-                  children: const [
-                    _HeatmapPanel(),
-                    SizedBox(height: 16),
-                    _RecentOperationsPanel(),
+                  children: [
+                    FutureBuilder<Map<String, int>>(
+                      future: _cityCountsFuture,
+                      builder: (context, snapshot) => _HeatmapPanel(
+                          cityCounts: snapshot.data, onRefresh: _refresh),
+                    ),
+                    const SizedBox(height: 16),
+                    FutureBuilder<List<AdminRecentOperation>>(
+                      future: _recentOpsFuture,
+                      builder: (context, snapshot) => _RecentOperationsPanel(
+                          operations: snapshot.data,
+                          error: snapshot.hasError ? snapshot.error : null),
+                    ),
                   ],
                 ),
             ],
@@ -292,6 +369,12 @@ class DashboardView extends StatelessWidget {
         );
       },
     );
+  }
+
+  String _changeSubtitle(BuildContext context, double? percent) {
+    if (percent == null) return context.l10n.adminStatNotEnoughData;
+    final sign = percent >= 0 ? '+' : '';
+    return context.l10n.adminStatVsLastMonth('$sign${percent.toStringAsFixed(1)}%');
   }
 
   Widget _buildStatCard(
@@ -326,66 +409,17 @@ class DashboardView extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Icon(Icons.trending_up, size: 14, color: color),
+              Icon(
+                  subtitle.trim().startsWith('-')
+                      ? Icons.trending_down
+                      : Icons.trending_up,
+                  size: 14,
+                  color: color),
               const SizedBox(width: 4),
-              Text(subtitle, style: TextStyle(color: color, fontSize: 12)),
-            ],
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeatmapBlob(Color color, String label, double size) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color.withValues(alpha: 0.3),
-      ),
-      child: Center(
-          child: Text(label,
-              style: TextStyle(
-                  color: color.withValues(alpha: 1.0),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12))),
-    );
-  }
-
-  Widget _buildOperationItem(
-      String type, String location, String person, IconData icon, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8)),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(type,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 14)),
-                Text(location,
-                    style: const TextStyle(color: Colors.grey, fontSize: 12)),
-              ],
-            ),
-          ),
-          Row(
-            children: [
-              CircleAvatar(radius: 12, backgroundColor: Colors.grey.shade300),
-              const SizedBox(width: 8),
-              Text(person,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 12)),
+              Expanded(
+                  child: Text(subtitle,
+                      style: TextStyle(color: color, fontSize: 12),
+                      overflow: TextOverflow.ellipsis)),
             ],
           )
         ],
@@ -394,11 +428,104 @@ class DashboardView extends StatelessWidget {
   }
 }
 
-class _HeatmapPanel extends StatelessWidget {
-  const _HeatmapPanel();
+/// Formats a number with `,` thousands separators, without pulling in intl's
+/// locale data (which needs async init we don't want to gate this screen on).
+String _formatNumber(num value, {int decimals = 0}) {
+  final fixed = value.toStringAsFixed(decimals);
+  final parts = fixed.split('.');
+  final negative = parts[0].startsWith('-');
+  final digits = negative ? parts[0].substring(1) : parts[0];
+  final buffer = StringBuffer();
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 == 0) buffer.write(',');
+    buffer.write(digits[i]);
+  }
+  final decPart = parts.length > 1 ? '.${parts[1]}' : '';
+  return '${negative ? '-' : ''}${buffer.toString()}$decPart';
+}
+
+(String, IconData, Color) _wasteTypeMeta(BuildContext context, String code) {
+  switch (code) {
+    case 'plastic':
+      return (context.l10n.adminWastePlastic, Icons.local_drink, Colors.blue);
+    case 'organic':
+      return (context.l10n.adminWasteOrganic, Icons.eco, Colors.green);
+    case 'paper':
+      return (context.l10n.adminWasteCardboard, Icons.inventory_2, Colors.orange);
+    case 'metal':
+      return (context.l10n.adminWasteMetal, Icons.build, Colors.blueGrey);
+    case 'glass':
+      return (context.l10n.adminWasteGlass, Icons.wine_bar_outlined, Colors.teal);
+    case 'ewaste':
+      return (context.l10n.adminWasteEwaste, Icons.memory, Colors.deepPurple);
+    case 'mixed':
+    default:
+      return (context.l10n.adminWasteMixed, Icons.delete_outline, Colors.grey);
+  }
+}
+
+class _StatsErrorBanner extends StatelessWidget {
+  const _StatsErrorBanner({required this.error, required this.onRetry});
+
+  final Object? error;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.red.shade100)),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, color: Colors.red.shade400),
+          const SizedBox(width: 12),
+          Expanded(
+              child: Text(
+                  AppErrorHandler.toUserMessage(
+                      context, error ?? Exception(context.l10n.adminStatsLoadFailed)),
+                  style: TextStyle(color: Colors.red.shade700))),
+          TextButton(onPressed: onRetry, child: Text(context.l10n.commonRefresh)),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeatmapPanel extends StatelessWidget {
+  const _HeatmapPanel({required this.cityCounts, required this.onRefresh});
+
+  final Map<String, int>? cityCounts;
+  final VoidCallback onRefresh;
+
+  int _countFor(String city) {
+    final counts = cityCounts;
+    if (counts == null) return 0;
+    for (final entry in counts.entries) {
+      if (entry.key.toLowerCase().contains(city.toLowerCase())) return entry.value;
+    }
+    return 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loading = cityCounts == null;
+    final doualaCount = _countFor('douala');
+    final yaoundeCount = _countFor('yaound');
+    final knownCities = {'douala', 'yaound'};
+    final otherCount = loading
+        ? 0
+        : cityCounts!.entries
+            .where((e) => !knownCities.any((k) => e.key.toLowerCase().contains(k)))
+            .fold<int>(0, (sum, e) => sum + e.value);
+    final total = doualaCount + yaoundeCount + otherCount;
+    final maxCount = [doualaCount, yaoundeCount, 1].reduce((a, b) => a > b ? a : b);
+
+    double sizeFor(int count) => 60 + (count / maxCount) * 60;
+
     return Container(
       height: 400,
       padding: const EdgeInsets.all(24),
@@ -415,8 +542,8 @@ class _HeatmapPanel extends StatelessWidget {
               Text(context.l10n.adminHeatmapTitle,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ElevatedButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.add, size: 16),
+                onPressed: onRefresh,
+                icon: const Icon(Icons.refresh, size: 16),
                 label: Text(context.l10n.adminLiveSystemButton),
                 style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green.shade50,
@@ -433,23 +560,44 @@ class _HeatmapPanel extends StatelessWidget {
               decoration: BoxDecoration(
                   color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(8)),
-              child: Stack(
-                children: [
-                  Center(
-                      child: Icon(Icons.map,
-                          size: 100, color: Colors.grey.shade300)),
-                  Positioned(
-                      top: 50,
-                      left: 80,
-                      child: _HeatmapBlob(
-                          color: Colors.orange, label: 'Douala', size: 80)),
-                  Positioned(
-                      top: 150,
-                      left: 220,
-                      child: _HeatmapBlob(
-                          color: Colors.green, label: 'Yaoundé', size: 100)),
-                ],
-              ),
+              child: loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : Stack(
+                      children: [
+                        Center(
+                            child: Icon(Icons.map,
+                                size: 100, color: Colors.grey.shade300)),
+                        if (total == 0)
+                          Center(
+                              child: Text(context.l10n.adminNoActiveRequests,
+                                  style: TextStyle(color: Colors.grey.shade500))),
+                        Positioned(
+                            top: 50,
+                            left: 80,
+                            child: _HeatmapBlob(
+                                color: Colors.orange,
+                                label: 'Douala',
+                                count: doualaCount,
+                                size: sizeFor(doualaCount))),
+                        Positioned(
+                            top: 150,
+                            left: 220,
+                            child: _HeatmapBlob(
+                                color: Colors.green,
+                                label: 'Yaoundé',
+                                count: yaoundeCount,
+                                size: sizeFor(yaoundeCount))),
+                        if (otherCount > 0)
+                          Positioned(
+                              bottom: 20,
+                              right: 20,
+                              child: _HeatmapBlob(
+                                  color: Colors.blueGrey,
+                                  label: context.l10n.adminFilterAll,
+                                  count: otherCount,
+                                  size: sizeFor(otherCount))),
+                      ],
+                    ),
             ),
           ),
         ],
@@ -460,10 +608,11 @@ class _HeatmapPanel extends StatelessWidget {
 
 class _HeatmapBlob extends StatelessWidget {
   const _HeatmapBlob(
-      {required this.color, required this.label, required this.size});
+      {required this.color, required this.label, required this.count, required this.size});
 
   final Color color;
   final String label;
+  final int count;
   final double size;
 
   @override
@@ -474,17 +623,30 @@ class _HeatmapBlob extends StatelessWidget {
       decoration: BoxDecoration(
           shape: BoxShape.circle, color: color.withValues(alpha: 0.3)),
       child: Center(
-          child: Text(label,
+          child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('$count',
               style: TextStyle(
                   color: color.withValues(alpha: 1.0),
                   fontWeight: FontWeight.bold,
-                  fontSize: 12))),
+                  fontSize: 16)),
+          Text(label,
+              style: TextStyle(
+                  color: color.withValues(alpha: 1.0),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11)),
+        ],
+      )),
     );
   }
 }
 
 class _RecentOperationsPanel extends StatelessWidget {
-  const _RecentOperationsPanel();
+  const _RecentOperationsPanel({required this.operations, required this.error});
+
+  final List<AdminRecentOperation>? operations;
+  final Object? error;
 
   @override
   Widget build(BuildContext context) {
@@ -503,39 +665,40 @@ class _RecentOperationsPanel extends StatelessWidget {
             children: [
               Text(context.l10n.adminRecentOpsTitle,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              TextButton(onPressed: () {}, child: Text(context.l10n.adminSeeAll)),
             ],
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: ListView(
-              children: [
-                _OperationItem(
-                    type: context.l10n.adminWastePlastic,
-                    location: 'Bastos, Yaoundé',
-                    person: 'M. Tabi',
-                    icon: Icons.local_drink,
-                    color: Colors.blue),
-                _OperationItem(
-                    type: context.l10n.adminWasteOrganic,
-                    location: 'Akwa, Douala',
-                    person: 'J. Ngono',
-                    icon: Icons.eco,
-                    color: Colors.green),
-                _OperationItem(
-                    type: context.l10n.adminWasteMedical,
-                    location: 'Hôpital Central',
-                    person: 'P. Eloundou',
-                    icon: Icons.medical_services,
-                    color: Colors.red),
-                _OperationItem(
-                    type: context.l10n.adminWasteCardboard,
-                    location: 'Bonamoussadi',
-                    person: "E. Eto'o",
-                    icon: Icons.inventory_2,
-                    color: Colors.orange),
-              ],
-            ),
+            child: Builder(builder: (context) {
+              if (error != null) {
+                return Center(
+                    child: Text(AppErrorHandler.toUserMessage(context, error!),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey.shade600)));
+              }
+              final ops = operations;
+              if (ops == null) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (ops.isEmpty) {
+                return Center(
+                    child: Text(context.l10n.adminNoRecentOperations,
+                        style: TextStyle(color: Colors.grey.shade600)));
+              }
+              return ListView.builder(
+                itemCount: ops.length,
+                itemBuilder: (context, i) {
+                  final op = ops[i];
+                  final (label, icon, color) = _wasteTypeMeta(context, op.wasteType);
+                  return _OperationItem(
+                      type: label,
+                      location: op.location,
+                      person: op.personName,
+                      icon: icon,
+                      color: color);
+                },
+              );
+            }),
           ),
         ],
       ),
@@ -579,18 +742,18 @@ class _OperationItem extends StatelessWidget {
                     style: const TextStyle(
                         fontWeight: FontWeight.bold, fontSize: 14)),
                 Text(location,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: Colors.grey, fontSize: 12)),
               ],
             ),
           ),
-          Row(
-            children: [
-              CircleAvatar(radius: 12, backgroundColor: Colors.grey.shade300),
-              const SizedBox(width: 8),
-              Text(person,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 12)),
-            ],
+          const SizedBox(width: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 90),
+            child: Text(person,
+                textAlign: TextAlign.right,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           ),
         ],
       ),
@@ -976,10 +1139,54 @@ class _RoleChips extends StatelessWidget {
 class WasteCatalogView extends StatelessWidget {
   const WasteCatalogView({super.key});
 
+  static const _order = ['plastic', 'paper', 'metal', 'glass', 'organic', 'ewaste', 'mixed'];
+
   @override
   Widget build(BuildContext context) {
-    return Center(
-        child: Text(context.l10n.adminCatalogComingSoon));
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(context.l10n.adminNavCatalog,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
+          const SizedBox(height: 4),
+          Text(context.l10n.adminCatalogSubtitle,
+              style: TextStyle(color: Colors.grey.shade600)),
+          const SizedBox(height: 16),
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200)),
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: _order.length,
+                separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey.shade100),
+                itemBuilder: (context, i) {
+                  final code = _order[i];
+                  final (label, icon, color) = _wasteTypeMeta(context, code);
+                  final rate = wasteXafPerKg[code] ?? 0;
+                  return ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8)),
+                      child: Icon(icon, color: color, size: 20),
+                    ),
+                    title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    trailing: Text('${_formatNumber(rate)} ${context.l10n.adminCatalogRateUnit}',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

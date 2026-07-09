@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart' hide Route;
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart' as fm;
 import 'package:latlong2/latlong.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
 /// A colored point to render on the map (waste request, collector, destination...).
 class MapPin {
@@ -10,8 +10,10 @@ class MapPin {
   final double radius;
 }
 
-/// Shared Mapbox map view (Web + Mobile) used across the app to display
-/// waste request pins, the user's position, and a route polyline.
+/// Shared Mapbox-tiled map view (Web + Mobile + Desktop, via flutter_map) used
+/// across the app to display waste request pins, the user's position, and a
+/// route polyline. `mapbox_maps_flutter` was tried first but only supports
+/// Android/iOS, so tiles are served through Mapbox's Static Tiles API instead.
 class CleanCityMapView extends StatefulWidget {
   const CleanCityMapView({
     super.key,
@@ -21,6 +23,8 @@ class CleanCityMapView extends StatefulWidget {
     this.route = const [],
     this.onTap,
   });
+
+  static const String mapboxAccessToken = String.fromEnvironment('MAPBOX_ACCESS_TOKEN');
 
   final LatLng center;
   final double zoom;
@@ -33,76 +37,57 @@ class CleanCityMapView extends StatefulWidget {
 }
 
 class _CleanCityMapViewState extends State<CleanCityMapView> {
-  MapboxMap? _map;
-  CircleAnnotationManager? _circles;
-  PolylineAnnotationManager? _lines;
+  final _mapCtrl = fm.MapController();
 
   @override
   void didUpdateWidget(covariant CleanCityMapView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.markers != widget.markers || oldWidget.route != widget.route) {
-      _syncAnnotations();
-    }
     if (oldWidget.center != widget.center || oldWidget.zoom != widget.zoom) {
-      _map?.flyTo(
-        CameraOptions(
-          center: Point(coordinates: Position(widget.center.longitude, widget.center.latitude)),
-          zoom: widget.zoom,
-        ),
-        MapAnimationOptions(duration: 600),
-      );
-    }
-  }
-
-  Future<void> _onMapCreated(MapboxMap map) async {
-    _map = map;
-    _circles = await map.annotations.createCircleAnnotationManager();
-    _lines = await map.annotations.createPolylineAnnotationManager();
-    await _syncAnnotations();
-  }
-
-  Future<void> _syncAnnotations() async {
-    final circles = _circles;
-    final lines = _lines;
-    if (circles == null || lines == null) return;
-
-    await circles.deleteAll();
-    await lines.deleteAll();
-
-    if (widget.markers.isNotEmpty) {
-      await circles.createMulti(widget.markers
-          .map((m) => CircleAnnotationOptions(
-                geometry: Point(coordinates: Position(m.point.longitude, m.point.latitude)),
-                circleColor: m.color.value,
-                circleRadius: m.radius,
-                circleStrokeColor: Colors.white.value,
-                circleStrokeWidth: 2,
-              ))
-          .toList());
-    }
-
-    if (widget.route.length >= 2) {
-      await lines.create(PolylineAnnotationOptions(
-        geometry: LineString(
-          coordinates: widget.route.map((p) => Position(p.longitude, p.latitude)).toList(),
-        ),
-        lineColor: Colors.blue.value,
-        lineWidth: 4,
-      ));
+      try {
+        _mapCtrl.move(widget.center, widget.zoom);
+      } catch (_) {
+        // Map not mounted yet; initialCenter/initialZoom below will cover it.
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return MapWidget(
-      cameraOptions: CameraOptions(
-        center: Point(coordinates: Position(widget.center.longitude, widget.center.latitude)),
-        zoom: widget.zoom,
+    final hasToken = CleanCityMapView.mapboxAccessToken.trim().isNotEmpty;
+    final tileUrl = hasToken
+        ? 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}@2x?access_token=${CleanCityMapView.mapboxAccessToken}'
+        : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+    return fm.FlutterMap(
+      mapController: _mapCtrl,
+      options: fm.MapOptions(
+        initialCenter: widget.center,
+        initialZoom: widget.zoom,
+        interactionOptions: const fm.InteractionOptions(flags: fm.InteractiveFlag.all & ~fm.InteractiveFlag.rotate),
+        onTap: widget.onTap == null ? null : (_, point) => widget.onTap!(point),
       ),
-      onMapCreated: _onMapCreated,
-      onTapListener: widget.onTap == null
-          ? null
-          : (ctx) => widget.onTap!(LatLng(ctx.point.coordinates.lat.toDouble(), ctx.point.coordinates.lng.toDouble())),
+      children: [
+        fm.TileLayer(urlTemplate: tileUrl, userAgentPackageName: 'com.cleancity.app'),
+        if (widget.route.length >= 2)
+          fm.PolylineLayer(polylines: [fm.Polyline(points: widget.route, strokeWidth: 4.5, color: Colors.blue)]),
+        if (widget.markers.isNotEmpty)
+          fm.MarkerLayer(
+            markers: widget.markers
+                .map((m) => fm.Marker(
+                      point: m.point,
+                      width: m.radius * 2 + 6,
+                      height: m.radius * 2 + 6,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: m.color,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                      ),
+                    ))
+                .toList(),
+          ),
+      ],
     );
   }
 }
