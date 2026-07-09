@@ -4,15 +4,50 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:cleancity/auth/auth_manager.dart';
 import 'package:cleancity/components/app_error_handler.dart';
 import 'package:cleancity/components/app_snackbars.dart';
+import 'package:cleancity/models/app_user.dart';
 import 'package:cleancity/nav.dart';
 import 'package:cleancity/services/app_user_service.dart';
+import 'package:cleancity/services/locale_provider.dart';
 import 'package:cleancity/services/push_notification_service.dart';
 import 'package:cleancity/theme.dart';
+
+/// Small "FR | EN" toggle for the pre-login auth screens, where there is no
+/// user profile yet to read a saved language preference from.
+class _LanguageToggle extends StatelessWidget {
+  const _LanguageToggle();
+
+  @override
+  Widget build(BuildContext context) {
+    final current = context.watch<LocaleProvider>().locale.languageCode;
+    return PopupMenuButton<String>(
+      tooltip: 'FR / EN',
+      initialValue: current,
+      onSelected: (code) => context.read<LocaleProvider>().setLocale(code),
+      itemBuilder: (context) => const [
+        PopupMenuItem(value: 'fr', child: Text('Français')),
+        PopupMenuItem(value: 'en', child: Text('English')),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.language),
+            const SizedBox(width: 4),
+            Text(current.toUpperCase(),
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 // --- SPLASH SCREEN ---
 class SplashScreen extends StatefulWidget {
@@ -51,7 +86,7 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
             Text(
-              'Cameroun',
+              context.l10n.authSplashCountry,
               style: context.textStyles.headlineMedium?.copyWith(
                 color: LightModeColors.lightPrimary,
                 fontWeight: FontWeight.bold,
@@ -59,7 +94,7 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'COLLECTER • REVALORISER • PRÉSERVER',
+              context.l10n.authSplashTagline,
               style: context.textStyles.labelSmall?.copyWith(
                 color: LightModeColors.lightOnSurfaceVariant,
                 letterSpacing: 2.0,
@@ -73,7 +108,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('INITIALISATION',
+                      Text(context.l10n.authSplashInitializing,
                           style: context.textStyles.labelSmall?.copyWith(
                               color: LightModeColors.lightPrimary,
                               fontWeight: FontWeight.bold)),
@@ -97,7 +132,7 @@ class _SplashScreenState extends State<SplashScreen> {
                       Icon(Icons.location_on_outlined,
                           size: 14, color: LightModeColors.lightPrimary),
                       const SizedBox(width: 4),
-                      Text('Made for Cameroon',
+                      Text(context.l10n.authSplashMadeFor,
                           style: context.textStyles.labelSmall
                               ?.copyWith(color: LightModeColors.lightPrimary)),
                     ],
@@ -139,13 +174,6 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
   StreamSubscription<AuthState>? _authSub;
   bool _handledOAuthRedirect = false;
 
-  String _friendlyLoginError(Object e) {
-    final mapped = AppErrorHandler.toUserMessage(e);
-    if (mapped == 'Email ou mot de passe invalide.')
-      return 'MOT DE PASSE OU EMAIL INVALIDE';
-    return mapped;
-  }
-
   @override
   void initState() {
     super.initState();
@@ -186,7 +214,7 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
     } catch (e) {
       debugPrint('Google sign-in failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, 'Connexion Google échouée.');
+      AppSnackbars.error(context, context.l10n.errorGoogleSignInFailed);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -199,7 +227,7 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
     final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text;
     if (email.isEmpty || password.isEmpty) {
-      AppSnackbars.warning(context, 'Veuillez remplir email et mot de passe.');
+      AppSnackbars.warning(context, context.l10n.authFillEmailPassword);
       return;
     }
 
@@ -215,7 +243,7 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
     } catch (e) {
       debugPrint('Login failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, _friendlyLoginError(e));
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -230,6 +258,7 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
           onPressed: () => context.go(AppRoutes.splash),
         ),
         title: Icon(Icons.eco, color: LightModeColors.lightPrimary),
+        actions: const [_LanguageToggle()],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -238,27 +267,27 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 24),
-              Text('Connexion', style: context.textStyles.headlineLarge),
+              Text(context.l10n.authLoginTitle, style: context.textStyles.headlineLarge),
               const SizedBox(height: 8),
-              Text('Heureux de vous revoir sur CLEANCITY',
+              Text(context.l10n.authLoginSubtitle,
                   style: context.textStyles.bodyLarge
                       ?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
               const SizedBox(height: 48),
-              const Text('Email',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+              Text(context.l10n.commonEmail,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               TextField(
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
-                  hintText: 'votre@email.cm',
+                  hintText: context.l10n.authEmailHint,
                   prefixIcon: Icon(Icons.person_outline,
                       color: LightModeColors.lightOnSurfaceVariant),
                 ),
               ),
               const SizedBox(height: 24),
-              const Text('Mot de passe',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+              Text(context.l10n.commonPassword,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               TextField(
                 key: ValueKey('login_pwd_${_obscurePassword ? '1' : '0'}'),
@@ -267,13 +296,13 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
                 enableSuggestions: false,
                 autocorrect: false,
                 decoration: InputDecoration(
-                  hintText: 'Entrez votre mot de passe',
+                  hintText: context.l10n.authPasswordHint,
                   prefixIcon: Icon(Icons.lock_outline,
                       color: LightModeColors.lightOnSurfaceVariant),
                   suffixIcon: IconButton(
                     tooltip: _obscurePassword
-                        ? 'Afficher le mot de passe'
-                        : 'Masquer le mot de passe',
+                        ? context.l10n.commonShowPassword
+                        : context.l10n.commonHidePassword,
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),
                     icon: Icon(
@@ -290,7 +319,7 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {},
-                  child: Text('Mot de passe oublié ?',
+                  child: Text(context.l10n.authForgotPassword,
                       style: TextStyle(
                           color: LightModeColors.lightPrimary,
                           fontWeight: FontWeight.w600)),
@@ -304,7 +333,7 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(_isLoading ? 'Connexion...' : 'Se connecter'),
+                      Text(_isLoading ? context.l10n.authLoggingIn : context.l10n.authLoginButton),
                       const SizedBox(width: 8),
                       Icon(_isLoading ? Icons.hourglass_top : Icons.login),
                     ],
@@ -324,19 +353,19 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
                       ? null
                       : () => context.push(AppRoutes.phoneLogin),
                   icon: const Icon(Icons.sms_outlined),
-                  label: const Text('Se connecter avec un numéro'),
+                  label: Text(context.l10n.authLoginWithPhone),
                 ),
               ),
               const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('Pas encore de compte ? ',
+                  Text(context.l10n.authNoAccountYet,
                       style: TextStyle(
                           color: LightModeColors.lightOnSurfaceVariant)),
                   GestureDetector(
                     onTap: () => context.go(AppRoutes.signup),
-                    child: Text("S'inscrire",
+                    child: Text(context.l10n.authSignUpLink,
                         style: TextStyle(
                             color: LightModeColors.lightPrimary,
                             fontWeight: FontWeight.bold)),
@@ -422,16 +451,16 @@ class _PhoneLoginBodyState extends State<_PhoneLoginBody> {
   String _friendlyPhoneSendError(Object e) {
     final msg = e.toString().toLowerCase();
     if (msg.contains('sms')) {
-      return 'SMS indisponible pour le moment. Réessayez plus tard.';
+      return context.l10n.errorSmsUnavailable;
     }
-    return AppErrorHandler.toUserMessage(e);
+    return AppErrorHandler.toUserMessage(context, e);
   }
 
   Future<void> _sendCode() async {
     final phone = _normalizeE164();
     // Cameroon E.164 is typically +237 + 9 digits => 13 chars.
     if (phone.length < 12) {
-      AppSnackbars.warning(context, 'Entrez un numéro valide.');
+      AppSnackbars.warning(context, context.l10n.authEnterValidPhone);
       return;
     }
     setState(() => _sending = true);
@@ -439,7 +468,7 @@ class _PhoneLoginBodyState extends State<_PhoneLoginBody> {
       await SupabaseAuthManager().sendPhoneOtp(phoneE164: phone);
       if (!mounted) return;
       setState(() => _codeSent = true);
-      AppSnackbars.success(context, 'Code envoyé par SMS.');
+      AppSnackbars.success(context, context.l10n.authCodeSentSms);
     } catch (e) {
       debugPrint('Phone OTP send failed: $e');
       if (!mounted) return;
@@ -453,7 +482,7 @@ class _PhoneLoginBodyState extends State<_PhoneLoginBody> {
     final phone = _normalizeE164();
     final code = _codeCtrl.text.trim();
     if (phone.isEmpty || code.length < 4) {
-      AppSnackbars.warning(context, 'Entrez le code reçu.');
+      AppSnackbars.warning(context, context.l10n.authEnterReceivedCode);
       return;
     }
     setState(() => _verifying = true);
@@ -468,7 +497,7 @@ class _PhoneLoginBodyState extends State<_PhoneLoginBody> {
     } catch (e) {
       debugPrint('Phone OTP verify failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, 'Code invalide ou expiré.');
+      AppSnackbars.error(context, context.l10n.errorInvalidOrExpiredCode);
     } finally {
       if (mounted) setState(() => _verifying = false);
     }
@@ -487,7 +516,8 @@ class _PhoneLoginBodyState extends State<_PhoneLoginBody> {
               context.go(AppRoutes.login);
           },
         ),
-        title: const Text('Connexion par téléphone'),
+        title: Text(context.l10n.authPhoneLoginTitle),
+        actions: const [_LanguageToggle()],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -495,7 +525,7 @@ class _PhoneLoginBodyState extends State<_PhoneLoginBody> {
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const SizedBox(height: 16),
-            Text('Numéro',
+            Text(context.l10n.authPhoneNumberLabel,
                 style: context.textStyles.titleMedium
                     ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
@@ -518,12 +548,12 @@ class _PhoneLoginBodyState extends State<_PhoneLoginBody> {
               child: ElevatedButton.icon(
                 onPressed: _sending ? null : _sendCode,
                 icon: Icon(_sending ? Icons.hourglass_top : Icons.sms_outlined),
-                label: Text(_sending ? 'Envoi...' : 'Envoyer le code'),
+                label: Text(_sending ? context.l10n.authSendingCode : context.l10n.authSendCodeButton),
               ),
             ),
             if (_codeSent) ...[
               const SizedBox(height: 24),
-              Text('Code SMS',
+              Text(context.l10n.authSmsCodeLabel,
                   style: context.textStyles.titleMedium
                       ?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
@@ -544,13 +574,13 @@ class _PhoneLoginBodyState extends State<_PhoneLoginBody> {
                   icon: Icon(_verifying
                       ? Icons.hourglass_top
                       : Icons.verified_outlined),
-                  label: Text(_verifying ? 'Vérification...' : 'Valider'),
+                  label: Text(_verifying ? context.l10n.authVerifying : context.l10n.authValidateButton),
                 ),
               ),
               const SizedBox(height: 8),
               TextButton(
                   onPressed: _sending ? null : _sendCode,
-                  child: const Text('Renvoyer le code')),
+                  child: Text(context.l10n.authResendCode)),
             ],
           ]),
         ),
@@ -624,7 +654,7 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
     } catch (e) {
       debugPrint('Google sign-in failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, 'Connexion Google échouée.');
+      AppSnackbars.error(context, context.l10n.errorGoogleSignInFailed);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -652,25 +682,38 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
         phoneRaw.isEmpty ||
         password.isEmpty) {
       AppSnackbars.warning(
-          context, 'Veuillez remplir tous les champs obligatoires.');
+          context, context.l10n.authFillRequiredFields);
       return;
     }
     if (password != password2) {
-      AppSnackbars.warning(context, 'Les mots de passe ne correspondent pas.');
+      AppSnackbars.warning(context, context.l10n.authPasswordsMismatch);
       return;
     }
     final phoneE164 = _toE164Cameroon(phoneRaw);
     if (!_cmPhoneRegex.hasMatch(phoneE164)) {
       AppSnackbars.warning(
-          context, 'Numéro invalide. Utilisez le format +2376XXXXXXXX.');
+          context, context.l10n.errorInvalidPhone);
       return;
     }
+    final preferredLanguage = context.read<LocaleProvider>().locale.languageCode;
 
     setState(() => _isLoading = true);
     try {
       final auth = SupabaseAuthManager();
       final user = await auth.createAccountWithEmail(context, email, password);
       if (user == null) throw StateError('Signup succeeded but user is null');
+
+      // When email confirmation is required, signUp() succeeds but leaves no
+      // active session: any authenticated call (RLS requires auth.uid()) would
+      // fail here. public.users already has a baseline row from the
+      // on_auth_user_created trigger; skip the profile upsert until the user
+      // confirms their email and actually logs in.
+      if (Supabase.instance.client.auth.currentSession == null) {
+        if (!mounted) return;
+        AppSnackbars.success(context, context.l10n.authAccountCreatedCheckEmail);
+        context.go(AppRoutes.login);
+        return;
+      }
 
       await PushNotificationService.setExternalUserId(user.id);
 
@@ -680,7 +723,7 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
         email: email,
         fullName: fullName,
         phoneE164: phoneE164,
-        preferredLanguage: 'fr',
+        preferredLanguage: preferredLanguage,
         role: 'generator',
       );
 
@@ -689,7 +732,7 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
     } catch (e) {
       debugPrint('Signup failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -703,8 +746,9 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go(AppRoutes.login),
         ),
-        title: const Text('Inscription',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        title: Text(context.l10n.authSignupTitle,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        actions: const [_LanguageToggle()],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -728,32 +772,32 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
               ),
               const SizedBox(height: 24),
               Center(
-                  child: Text('Rejoignez-nous',
+                  child: Text(context.l10n.authSignupHeadline,
                       style: context.textStyles.headlineMedium)),
               const SizedBox(height: 8),
               Center(
                 child: Text(
-                  'Contribuez à un Cameroun plus propre avec CLEANCITY',
+                  context.l10n.authSignupSubtitle,
                   style: context.textStyles.bodyMedium
                       ?.copyWith(color: LightModeColors.lightOnSurfaceVariant),
                   textAlign: TextAlign.center,
                 ),
               ),
               const SizedBox(height: 32),
-              _buildLabel('Nom complet'),
+              _buildLabel(context.l10n.authFullNameLabel),
               TextField(
                   controller: _fullNameCtrl,
                   decoration:
-                      _inputDeco(Icons.person_outline, 'Ex: Jean-Paul Biya')),
+                      _inputDeco(Icons.person_outline, context.l10n.authFullNameHint)),
               const SizedBox(height: 16),
-              _buildLabel('Adresse Email'),
+              _buildLabel(context.l10n.authEmailAddressLabel),
               TextField(
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
                   decoration:
-                      _inputDeco(Icons.email_outlined, 'votre@email.cm')),
+                      _inputDeco(Icons.email_outlined, context.l10n.authEmailHint)),
               const SizedBox(height: 16),
-              _buildLabel('Numéro de téléphone'),
+              _buildLabel(context.l10n.authPhoneNumberLabel),
               TextField(
                 controller: _phoneCtrl,
                 keyboardType: TextInputType.phone,
@@ -762,7 +806,7 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
                   _CameroonLocalPhoneFormatter(),
                 ],
                 decoration: InputDecoration(
-                  hintText: '6XX XXX XXX (+2376XXXXXXXX)',
+                  hintText: context.l10n.authLocalPhoneHint,
                   prefixIcon: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Row(
@@ -785,10 +829,10 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
                 ),
               ),
               const SizedBox(height: 16),
-              _buildLabel('Ville'),
+              _buildLabel(context.l10n.authCityLabel),
               DropdownButtonFormField<String>(
                 decoration: _inputDeco(
-                    Icons.location_city_outlined, 'Choisir votre ville'),
+                    Icons.location_city_outlined, context.l10n.authChooseCityHint),
                 items: const [
                   DropdownMenuItem(value: 'Douala', child: Text('Douala')),
                   DropdownMenuItem(value: 'Yaoundé', child: Text('Yaoundé')),
@@ -803,7 +847,7 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
                 },
               ),
               const SizedBox(height: 16),
-              _buildLabel('Mot de passe'),
+              _buildLabel(context.l10n.commonPassword),
               TextField(
                 key: ValueKey('signup_pwd_${_obscurePassword ? '1' : '0'}'),
                 controller: _passwordCtrl,
@@ -813,8 +857,8 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
                 decoration: _inputDeco(Icons.lock_outline, '••••••••').copyWith(
                   suffixIcon: IconButton(
                     tooltip: _obscurePassword
-                        ? 'Afficher le mot de passe'
-                        : 'Masquer le mot de passe',
+                        ? context.l10n.commonShowPassword
+                        : context.l10n.commonHidePassword,
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),
                     icon: Icon(
@@ -827,7 +871,7 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
                 ),
               ),
               const SizedBox(height: 16),
-              _buildLabel('Confirmer le mot de passe'),
+              _buildLabel(context.l10n.authConfirmPasswordLabel),
               TextField(
                 key: ValueKey('signup_pwd2_${_obscurePassword2 ? '1' : '0'}'),
                 controller: _password2Ctrl,
@@ -837,8 +881,8 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
                 decoration: _inputDeco(Icons.lock_outline, '••••••••').copyWith(
                   suffixIcon: IconButton(
                     tooltip: _obscurePassword2
-                        ? 'Afficher le mot de passe'
-                        : 'Masquer le mot de passe',
+                        ? context.l10n.commonShowPassword
+                        : context.l10n.commonHidePassword,
                     onPressed: () =>
                         setState(() => _obscurePassword2 = !_obscurePassword2),
                     icon: Icon(
@@ -855,7 +899,7 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _submit,
-                  child: Text(_isLoading ? 'Création...' : "S'inscrire"),
+                  child: Text(_isLoading ? context.l10n.authCreatingAccount : context.l10n.authSignUpLink),
                 ),
               ),
               const SizedBox(height: 16),
@@ -867,12 +911,12 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('Déjà un compte ? ',
+                  Text(context.l10n.authAlreadyHaveAccount,
                       style: TextStyle(
                           color: LightModeColors.lightOnSurfaceVariant)),
                   GestureDetector(
                     onTap: () => context.go(AppRoutes.login),
-                    child: Text("Se connecter",
+                    child: Text(context.l10n.authLoginButton,
                         style: TextStyle(
                             color: LightModeColors.lightPrimary,
                             fontWeight: FontWeight.bold)),
@@ -921,7 +965,7 @@ class SocialAuthSection extends StatelessWidget {
             const Expanded(child: Divider(height: 1)),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text('OU',
+              child: Text(context.l10n.commonOr,
                   style: context.textStyles.labelMedium?.copyWith(
                       color: LightModeColors.lightOnSurfaceVariant,
                       fontWeight: FontWeight.w700)),
@@ -936,7 +980,7 @@ class SocialAuthSection extends StatelessWidget {
             onPressed: isLoading ? null : onGoogle,
             icon: const Icon(Icons.g_mobiledata_rounded,
                 color: LightModeColors.lightPrimary),
-            label: const Text('Continuer avec Google'),
+            label: Text(context.l10n.authContinueWithGoogle),
           ),
         ),
       ],
@@ -985,9 +1029,37 @@ class _CameroonPhoneTypingFormatter extends TextInputFormatter {
   }
 }
 
+String _dashboardRouteForRole(String role) {
+  switch (role) {
+    case 'collector':
+      return AppRoutes.collectorDashboard;
+    case 'center':
+    case 'processing_center':
+      return AppRoutes.centerDashboard;
+    case 'admin':
+      return AppRoutes.adminDashboard;
+    case 'generator':
+    default:
+      return AppRoutes.generatorDashboard;
+  }
+}
+
 // --- ROLE SELECTION SCREEN ---
-class RoleSelectionScreen extends StatelessWidget {
+class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
+
+  @override
+  State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
+}
+
+class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
+  late Future<AppUser?> _profileFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _profileFuture = AppUserService().getCurrentProfile();
+  }
 
   Future<void> _openAdminIfAllowed(BuildContext context) async {
     try {
@@ -995,15 +1067,28 @@ class RoleSelectionScreen extends StatelessWidget {
       if (profile?.role != 'admin') {
         if (!context.mounted) return;
         AppSnackbars.warning(
-            context, "Accès refusé. Ce compte n'est pas administrateur.");
+            context, context.l10n.authAccessDeniedNotAdmin);
         return;
       }
       if (context.mounted) context.go(AppRoutes.adminDashboard);
     } catch (e) {
       debugPrint('Open admin failed: $e');
       if (!context.mounted) return;
-      AppSnackbars.error(context, 'Impossible de vérifier le rôle admin.');
+      AppSnackbars.error(context, context.l10n.errorCannotVerifyAdminRole);
     }
+  }
+
+  Future<void> _pickRole(String role) async {
+    try {
+      await AppUserService().updateRole(role);
+    } catch (e) {
+      debugPrint('Failed updating role: $e');
+      if (!mounted) return;
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
+      return;
+    }
+    if (!mounted) return;
+    context.go(_dashboardRouteForRole(role));
   }
 
   @override
@@ -1012,142 +1097,134 @@ class RoleSelectionScreen extends StatelessWidget {
       appBar: AppBar(
         leading: IconButton(
             icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
-        title: const Text('CLEANCITY Cameroun', style: TextStyle(fontSize: 14)),
+        title: Text(context.l10n.authAppBarTitle, style: const TextStyle(fontSize: 14)),
+        actions: const [_LanguageToggle()],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: AppSpacing.paddingLg,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 16),
-              Text('Bienvenue !', style: context.textStyles.headlineLarge),
-              const SizedBox(height: 8),
-              Text('Quel est votre rôle dans l\'écosystème ?',
-                  style: context.textStyles.bodyLarge
-                      ?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
-              const SizedBox(height: 40),
-              _RoleCard(
-                icon: Icons.home_work_outlined,
-                title: 'Générateur',
-                subtitle: 'PARTICULIER OU ENTREPRISE',
-                description: 'Je souhaite faire enlever mes déchets.',
-                onTap: () async {
-                  try {
-                    await AppUserService().updateRole('generator');
-                  } catch (e) {
-                    debugPrint('Failed updating role: $e');
-                  }
-                  if (context.mounted) context.go(AppRoutes.generatorDashboard);
-                },
-              ),
-              const SizedBox(height: 16),
-              _RoleCard(
-                icon: Icons.local_shipping_outlined,
-                title: 'Collecteur',
-                subtitle: 'SERVICE DE TRANSPORT',
-                description: 'Je collecte et transporte les déchets.',
-                onTap: () async {
-                  try {
-                    await AppUserService().updateRole('collector');
-                  } catch (e) {
-                    debugPrint('Failed updating role: $e');
-                  }
-                  if (context.mounted) context.go(AppRoutes.collectorDashboard);
-                },
-              ),
-              const SizedBox(height: 16),
-              _RoleCard(
-                icon: Icons.factory_outlined,
-                title: 'Centre de Revalorisation',
-                subtitle: 'TRAITEMENT DES DÉCHETS',
-                description: 'Je traite et transforme les déchets.',
-                onTap: () async {
-                  try {
-                    await AppUserService().updateRole('center');
-                  } catch (e) {
-                    debugPrint('Failed updating role: $e');
-                  }
-                  if (context.mounted) context.go(AppRoutes.centerDashboard);
-                },
-              ),
-              const SizedBox(height: 32),
-              if (kIsWeb) ...[
-                FutureBuilder(
-                  future: AppUserService().getCurrentProfile(),
-                  builder: (context, snapshot) {
-                    final role = snapshot.data?.role;
-                    if (role != 'admin') return const SizedBox.shrink();
-                    return Column(
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          padding: AppSpacing.paddingLg,
-                          decoration: BoxDecoration(
-                            color: LightModeColors.lightPrimaryContainer,
-                            borderRadius: BorderRadius.circular(AppRadius.lg),
-                            border: Border.all(
-                                color: LightModeColors.lightSurfaceVariant,
-                                width: 1.5),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: const BoxDecoration(
-                                    color: LightModeColors.lightSurface,
-                                    shape: BoxShape.circle),
-                                child: const Icon(
-                                    Icons.admin_panel_settings_outlined,
-                                    color: LightModeColors.lightPrimary,
-                                    size: 22),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Administration (Web)',
-                                        style: context.textStyles.titleMedium
-                                            ?.copyWith(
-                                                fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 4),
-                                    Text('Accès réservé aux administrateurs',
-                                        style: context.textStyles.bodySmall
-                                            ?.copyWith(
-                                                color: LightModeColors
-                                                    .lightOnSurfaceVariant)),
-                                  ],
-                                ),
-                              ),
-                              FilledButton.icon(
-                                onPressed: () => _openAdminIfAllowed(context),
-                                icon: const Icon(Icons.open_in_new,
-                                    color: LightModeColors.lightOnPrimary),
-                                label: const Text('Ouvrir',
-                                    style: TextStyle(
-                                        color: LightModeColors.lightOnPrimary)),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-                    );
-                  },
-                ),
-              ],
-              TextButton(
-                onPressed: () {},
-                child: Text('Besoin d\'aide pour choisir ? Contactez-nous',
-                    style: TextStyle(
-                        color: LightModeColors.lightOnSurfaceVariant,
-                        decoration: TextDecoration.underline)),
-              ),
-            ],
+          child: FutureBuilder<AppUser?>(
+            future: _profileFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.only(top: 120),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              final profile = snapshot.data;
+              if (profile != null && profile.isRoleLocked) {
+                return _RoleLockedView(
+                    profile: profile, onOpenAdmin: () => _openAdminIfAllowed(context));
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 16),
+                  Text(context.l10n.authWelcomeTitle, style: context.textStyles.headlineLarge),
+                  const SizedBox(height: 8),
+                  Text(context.l10n.authRoleQuestion,
+                      style: context.textStyles.bodyLarge?.copyWith(
+                          color: LightModeColors.lightOnSurfaceVariant)),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                        context.l10n.authRoleChoiceFinalNotice,
+                        textAlign: TextAlign.center,
+                        style: context.textStyles.bodySmall?.copyWith(
+                            color: LightModeColors.lightOnSurfaceVariant)),
+                  ),
+                  const SizedBox(height: 40),
+                  _RoleCard(
+                    icon: Icons.home_work_outlined,
+                    title: context.l10n.authRoleGeneratorTitle,
+                    subtitle: context.l10n.authRoleGeneratorSubtitle,
+                    description: context.l10n.authRoleGeneratorDescription,
+                    onTap: () => _pickRole('generator'),
+                  ),
+                  const SizedBox(height: 16),
+                  _RoleCard(
+                    icon: Icons.local_shipping_outlined,
+                    title: context.l10n.authRoleCollectorTitle,
+                    subtitle: context.l10n.authRoleCollectorSubtitle,
+                    description: context.l10n.authRoleCollectorDescription,
+                    onTap: () => _pickRole('collector'),
+                  ),
+                  const SizedBox(height: 16),
+                  _RoleCard(
+                    icon: Icons.factory_outlined,
+                    title: context.l10n.authRoleCenterTitle,
+                    subtitle: context.l10n.authRoleCenterSubtitle,
+                    description: context.l10n.authRoleCenterDescription,
+                    onTap: () => _pickRole('center'),
+                  ),
+                  const SizedBox(height: 32),
+                  TextButton(
+                    onPressed: () {},
+                    child: Text(context.l10n.authNeedHelpChoosing,
+                        style: TextStyle(
+                            color: LightModeColors.lightOnSurfaceVariant,
+                            decoration: TextDecoration.underline)),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
+    );
+  }
+}
+
+class _RoleLockedView extends StatelessWidget {
+  const _RoleLockedView({required this.profile, required this.onOpenAdmin});
+
+  final AppUser profile;
+  final VoidCallback onOpenAdmin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const SizedBox(height: 40),
+        Icon(Icons.lock_outline, size: 48, color: LightModeColors.lightPrimary),
+        const SizedBox(height: 16),
+        Text(context.l10n.authRoleLockedTitle,
+            style: context.textStyles.headlineSmall
+                ?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+              color: LightModeColors.lightPrimaryContainer,
+              borderRadius: BorderRadius.circular(999)),
+          child: Text(profile.roleLabel(context),
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(height: 16),
+        Text(
+            context.l10n.authRoleLockedSubtitle,
+            textAlign: TextAlign.center,
+            style: context.textStyles.bodyMedium
+                ?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
+        const SizedBox(height: 32),
+        FilledButton.icon(
+          onPressed: () => context.go(_dashboardRouteForRole(profile.role)),
+          icon: const Icon(Icons.arrow_forward),
+          label: Text(context.l10n.authRoleLockedGoToDashboard),
+        ),
+        if (kIsWeb && profile.role == 'admin') ...[
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: onOpenAdmin,
+            icon: const Icon(Icons.admin_panel_settings_outlined),
+            label: Text(context.l10n.authRoleLockedOpenAdmin),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -1219,7 +1296,7 @@ class _RoleCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   Align(
                     alignment: Alignment.centerRight,
-                    child: Text('CHOISIR >',
+                    child: Text(context.l10n.authChooseArrow,
                         style: TextStyle(
                             color: LightModeColors.lightPrimary,
                             fontWeight: FontWeight.bold,

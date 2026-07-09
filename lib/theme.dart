@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:cleancity/l10n/generated/app_localizations.dart';
+
 class AppSpacing {
   // Spacing values
   static const double xs = 4.0;
@@ -39,6 +41,10 @@ class AppRadius {
 
 extension TextStyleContext on BuildContext {
   TextTheme get textStyles => Theme.of(this).textTheme;
+}
+
+extension AppLocalizationsContext on BuildContext {
+  AppLocalizations get l10n => AppLocalizations.of(this);
 }
 
 extension TextStyleExtensions on TextStyle {

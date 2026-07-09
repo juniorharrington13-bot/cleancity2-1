@@ -1,7 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 
 import 'package:cleancity/auth/auth_manager.dart';
 import 'package:cleancity/components/app_error_handler.dart';
@@ -9,6 +9,7 @@ import 'package:cleancity/components/app_snackbars.dart';
 import 'package:cleancity/models/app_user.dart';
 import 'package:cleancity/nav.dart';
 import 'package:cleancity/services/app_user_service.dart';
+import 'package:cleancity/services/locale_provider.dart';
 import 'package:cleancity/services/media_upload_service.dart';
 import 'package:cleancity/theme.dart';
 
@@ -24,11 +25,10 @@ class _UserProfileTabState extends State<UserProfileTab> {
   late Future _future;
   final _fullNameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  String _lang = 'fr';
   bool _saving = false;
   bool _uploadingAvatar = false;
 
-  String _langLabel(String code) => code == 'en' ? 'English' : 'Francais';
+  String _langLabel(String code) => code == 'en' ? 'English' : 'Français';
 
   @override
   void initState() {
@@ -40,7 +40,11 @@ class _UserProfileTabState extends State<UserProfileTab> {
     final profile = await AppUserService().getCurrentProfile();
     _fullNameCtrl.text = profile?.fullName ?? '';
     _phoneCtrl.text = profile?.phoneE164 ?? '';
-    _lang = profile?.preferredLanguage ?? 'fr';
+    // The app's active language already reflects the saved preference (it was
+    // reconciled at login); this just keeps the two in sync if they ever drift.
+    if (mounted && profile?.preferredLanguage != null) {
+      context.read<LocaleProvider>().syncFromProfile(profile!.preferredLanguage);
+    }
   }
 
   @override
@@ -57,14 +61,13 @@ class _UserProfileTabState extends State<UserProfileTab> {
       await AppUserService().updateProfile(
         fullName: _fullNameCtrl.text.trim(),
         phoneE164: _phoneCtrl.text.trim(),
-        preferredLanguage: _lang,
       );
       if (!mounted) return;
-      AppSnackbars.success(context, 'Profil mis à jour.');
+      AppSnackbars.success(context, context.l10n.profileUpdated);
     } catch (e) {
       debugPrint('Profile save failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -84,20 +87,20 @@ class _UserProfileTabState extends State<UserProfileTab> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Photo de profil',
+                Text(context.l10n.profileAvatarSheetTitle,
                     style: context.textStyles.titleMedium
                         ?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 FilledButton.icon(
                   onPressed: () => context.pop(ImageSource.gallery),
                   icon: const Icon(Icons.photo_library),
-                  label: const Text('Choisir depuis la galerie'),
+                  label: Text(context.l10n.profileChooseFromGallery),
                 ),
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
                   onPressed: () => context.pop(ImageSource.camera),
                   icon: const Icon(Icons.photo_camera),
-                  label: const Text('Prendre une photo'),
+                  label: Text(context.l10n.profileTakePhoto),
                 ),
               ],
             ),
@@ -120,15 +123,15 @@ class _UserProfileTabState extends State<UserProfileTab> {
       setState(() {
         _future = _load();
       });
-      AppSnackbars.success(context, 'Photo de profil mise à jour.');
+      AppSnackbars.success(context, context.l10n.profilePhotoUpdated);
     } on MediaUploadException catch (e) {
       debugPrint('Avatar upload blocked: $e');
       if (!mounted) return;
-      AppSnackbars.warning(context, AppErrorHandler.toUserMessage(e));
+      AppSnackbars.warning(context, AppErrorHandler.toUserMessage(context, e));
     } catch (e) {
       debugPrint('Avatar upload failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
     } finally {
       if (mounted) setState(() => _uploadingAvatar = false);
     }
@@ -142,7 +145,7 @@ class _UserProfileTabState extends State<UserProfileTab> {
     } catch (e) {
       debugPrint('Logout failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
     }
   }
 
@@ -154,7 +157,7 @@ class _UserProfileTabState extends State<UserProfileTab> {
         return ListView(
           padding: AppSpacing.paddingLg,
           children: [
-            Text('Profil',
+            Text(context.l10n.profileTitle,
                 style: context.textStyles.titleLarge
                     ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
@@ -190,7 +193,7 @@ class _UserProfileTabState extends State<UserProfileTab> {
                             right: -4,
                             bottom: -4,
                             child: IconButton(
-                              tooltip: 'Changer la photo',
+                              tooltip: context.l10n.profileChangePhotoTooltip,
                               onPressed:
                                   _uploadingAvatar ? null : _changeAvatar,
                               style: IconButton.styleFrom(
@@ -216,8 +219,8 @@ class _UserProfileTabState extends State<UserProfileTab> {
                           children: [
                             Text(
                               (u != null)
-                                  ? u.displayNameCapitalized()
-                                  : 'Utilisateur',
+                                  ? u.displayNameCapitalized(context)
+                                  : context.l10n.commonUser,
                               style: context.textStyles.titleMedium
                                   ?.copyWith(fontWeight: FontWeight.bold),
                               maxLines: 1,
@@ -241,7 +244,7 @@ class _UserProfileTabState extends State<UserProfileTab> {
                             color: LightModeColors.lightPrimaryContainer,
                             borderRadius: BorderRadius.circular(999)),
                         child: Text(
-                          (u != null) ? u.roleLabelFr() : 'GENERATEUR',
+                          (u != null) ? u.roleLabel(context) : context.l10n.roleGenerator,
                           style: context.textStyles.labelSmall?.copyWith(
                               color: LightModeColors.lightPrimary,
                               fontWeight: FontWeight.bold),
@@ -255,18 +258,21 @@ class _UserProfileTabState extends State<UserProfileTab> {
             const SizedBox(height: 16),
             TextField(
                 controller: _fullNameCtrl,
-                decoration: const InputDecoration(labelText: 'Nom complet')),
+                decoration: InputDecoration(labelText: context.l10n.authFullNameLabel)),
             const SizedBox(height: 12),
             TextField(
                 controller: _phoneCtrl,
                 decoration:
-                    const InputDecoration(labelText: 'Téléphone (E.164)'),
+                    InputDecoration(labelText: context.l10n.profilePhoneLabel),
                 keyboardType: TextInputType.phone),
             const SizedBox(height: 12),
-            _LanguageSelector(
-              currentValue: _lang,
-              labelFor: _langLabel,
-              onChanged: (v) => setState(() => _lang = v),
+            Consumer<LocaleProvider>(
+              builder: (context, localeProvider, _) => _LanguageSelector(
+                currentValue: localeProvider.locale.languageCode,
+                labelFor: _langLabel,
+                onChanged: (v) =>
+                    context.read<LocaleProvider>().setLocale(v, persistToDb: true),
+              ),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -275,7 +281,7 @@ class _UserProfileTabState extends State<UserProfileTab> {
                 onPressed: _saving ? null : _save,
                 child:
                     Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(_saving ? 'Sauvegarde...' : 'Sauvegarder'),
+                  Text(_saving ? context.l10n.profileSaving : context.l10n.commonSave),
                   const SizedBox(width: 8),
                   Icon(_saving ? Icons.hourglass_top : Icons.save)
                 ]),
@@ -287,8 +293,8 @@ class _UserProfileTabState extends State<UserProfileTab> {
               child: OutlinedButton.icon(
                 onPressed: _logout,
                 icon: const Icon(Icons.logout, color: Colors.red),
-                label: const Text('Se déconnecter',
-                    style: TextStyle(color: Colors.red)),
+                label: Text(context.l10n.commonLogout,
+                    style: const TextStyle(color: Colors.red)),
               ),
             ),
             const SizedBox(height: 80),
@@ -313,14 +319,14 @@ class _LanguageSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
-      tooltip: 'Choisir la langue',
+      tooltip: context.l10n.profileLanguageTooltip,
       onSelected: onChanged,
       itemBuilder: (context) => const [
-        PopupMenuItem<String>(value: 'fr', child: Text('Francais')),
+        PopupMenuItem<String>(value: 'fr', child: Text('Français')),
         PopupMenuItem<String>(value: 'en', child: Text('English')),
       ],
       child: InputDecorator(
-        decoration: const InputDecoration(labelText: 'Langue'),
+        decoration: InputDecoration(labelText: context.l10n.profileLanguageLabel),
         child: Row(
           children: [
             Expanded(

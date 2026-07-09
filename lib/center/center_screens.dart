@@ -45,7 +45,7 @@ class _CenterDashboardState extends State<CenterDashboard> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         leading: IconButton(
-          tooltip: 'Retour',
+          tooltip: context.l10n.commonBack,
           icon: Icon(Icons.arrow_back,
               color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => _handleBack(context),
@@ -66,14 +66,14 @@ class _CenterDashboardState extends State<CenterDashboard> {
               builder: (context, snap) {
                 final name = (snap.data?.fullName?.trim().isNotEmpty ?? false)
                     ? snap.data!.fullName!.trim()
-                    : 'Centre';
+                    : context.l10n.centerDefaultName;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(name,
                         style: context.textStyles.titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold)),
-                    Text('CLEANCITY Cameroun',
+                    Text(context.l10n.authAppBarTitle,
                         style: context.textStyles.labelSmall
                             ?.copyWith(color: LightModeColors.lightPrimary)),
                   ],
@@ -92,17 +92,17 @@ class _CenterDashboardState extends State<CenterDashboard> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _index,
         onTap: (i) => setState(() => _index = i),
-        items: const [
+        items: [
           BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_outlined), label: 'Tableau de bord'),
+              icon: const Icon(Icons.dashboard_outlined), label: context.l10n.adminNavDashboard),
           BottomNavigationBarItem(
-              icon: Icon(Icons.local_shipping_outlined), label: 'Livraisons'),
+              icon: const Icon(Icons.local_shipping_outlined), label: context.l10n.centerNavDeliveries),
           BottomNavigationBarItem(
-              icon: Icon(Icons.inventory_2_outlined), label: 'Stocks'),
+              icon: const Icon(Icons.inventory_2_outlined), label: context.l10n.centerNavStocks),
           BottomNavigationBarItem(
-              icon: Icon(Icons.forum_outlined), label: 'Chat'),
+              icon: const Icon(Icons.forum_outlined), label: context.l10n.chatTitle),
           BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline), label: 'Profil'),
+              icon: const Icon(Icons.person_outline), label: context.l10n.profileTitle),
         ],
       ),
     );
@@ -210,12 +210,12 @@ class _CenterMainTab extends StatelessWidget {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () => context.push(AppRoutes.receptionForm),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.qr_code_scanner),
-                  SizedBox(width: 8),
-                  Text('Réception rapide')
+                  const Icon(Icons.qr_code_scanner),
+                  const SizedBox(width: 8),
+                  Text(context.l10n.centerQuickReception)
                 ],
               ),
             ),
@@ -224,9 +224,9 @@ class _CenterMainTab extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Résumé mensuel',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              Text('Donnees en cours',
+              Text(context.l10n.centerMonthlySummary,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(context.l10n.centerDataInProgress,
                   style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
             ],
           ),
@@ -236,33 +236,33 @@ class _CenterMainTab extends StatelessWidget {
               Expanded(
                   child: _SummaryCard(
                       icon: Icons.scale,
-                      title: 'Volume total traité',
+                      title: context.l10n.centerTotalVolumeProcessed,
                       value: '—',
                       change: '—')),
               const SizedBox(width: 16),
               Expanded(
                   child: _SummaryCard(
                       icon: Icons.recycling,
-                      title: 'Taux revalorisation',
+                      title: context.l10n.centerRecoveryRate,
                       value: '—',
                       change: '—')),
             ],
           ),
           const SizedBox(height: 32),
-          const Text('Livraisons attendues',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(context.l10n.centerExpectedDeliveries,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 16),
           _DeliveryCard(
               truck: 'CAM-—',
-              type: 'PLASTIQUE',
-              status: 'En attente',
+              type: context.l10n.centerWasteTypePlasticShort,
+              status: context.l10n.statusPending,
               time: '—',
               color: Colors.blue),
           const SizedBox(height: 12),
           _DeliveryCard(
               truck: 'CAM-—',
-              type: 'ORGANIQUE',
-              status: 'En attente',
+              type: context.l10n.centerWasteTypeOrganicShort,
+              status: context.l10n.statusPending,
               time: '—',
               color: Colors.orange),
           const SizedBox(height: 32),
@@ -274,8 +274,8 @@ class _CenterMainTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Capacite du stock',
-                    style: TextStyle(
+                Text(context.l10n.centerStockCapacity,
+                    style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 16)),
@@ -286,8 +286,8 @@ class _CenterMainTab extends StatelessWidget {
                     valueColor: AlwaysStoppedAnimation<Color>(
                         LightModeColors.lightPrimary)),
                 const SizedBox(height: 8),
-                const Text('Zone de tri : suivi du stock',
-                    style: TextStyle(color: Colors.white70, fontSize: 12)),
+                Text(context.l10n.centerSortingZoneTracking,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
               ],
             ),
           ),
@@ -351,8 +351,7 @@ class _CenterDeliveriesTabState extends State<_CenterDeliveriesTab> {
           .from('waste_requests')
           .select(
               'id, waste_type, status, created_at, quantity_estimate_kg, addresses(city, neighborhood)')
-          .inFilter(
-              'status', ['accepted', 'en_route', 'collected', 'delivered'])
+          .inFilter('status', ['accepted', 'collected', 'delivered'])
           .order('created_at', ascending: false)
           .limit(50);
       return (rows as List)
@@ -393,7 +392,7 @@ class _CenterDeliveriesTabState extends State<_CenterDeliveriesTab> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Livraisons',
+              Text(context.l10n.centerNavDeliveries,
                   style: context.textStyles.titleLarge
                       ?.copyWith(fontWeight: FontWeight.bold)),
               IconButton(
@@ -409,15 +408,14 @@ class _CenterDeliveriesTabState extends State<_CenterDeliveriesTab> {
               if (snap.connectionState == ConnectionState.waiting)
                 return const LinearProgressIndicator();
               if (snap.hasError)
-                return Text('Impossible de charger les livraisons.',
+                return Text(context.l10n.centerDeliveriesLoadFailed,
                     style: const TextStyle(color: Colors.red));
               final rows = snap.data ?? const <Map<String, dynamic>>[];
               if (rows.isEmpty) {
                 return _CenterEmptyStateCard(
                     icon: Icons.local_shipping_outlined,
-                    title: 'Aucune livraison en cours',
-                    subtitle:
-                        'Les livraisons (acceptées / en route / collectées) apparaîtront ici.');
+                    title: context.l10n.centerNoDeliveriesTitle,
+                    subtitle: context.l10n.centerNoDeliveriesSubtitle);
               }
               return Column(
                 children: rows.map((r) {
@@ -444,8 +442,8 @@ class _CenterDeliveriesTabState extends State<_CenterDeliveriesTab> {
                             'REQ-${(r['id'] ?? '').toString().substring(0, 6).toUpperCase()}',
                         type: type.toUpperCase(),
                         status:
-                            '${_statusLabelFr(status)} • $kg kg • ${location.isEmpty ? '—' : location}',
-                        time: 'Ouvrir',
+                            '${_statusLabel(context, status)} • $kg kg • ${location.isEmpty ? '—' : location}',
+                        time: context.l10n.commonOpen,
                         color: color,
                       ),
                     ),
@@ -485,9 +483,9 @@ class _CenterStocksTabState extends State<_CenterStocksTab> {
       final rows = await client
           .from('processing_events')
           .select(
-              'id, weighed_kg, received_at, request_id, waste_requests(waste_type)')
+              'id, weighed_kg, created_at, request_id, waste_requests(waste_type)')
           .eq('center_id', uid)
-          .order('received_at', ascending: false)
+          .order('created_at', ascending: false)
           .limit(200);
       return (rows as List)
           .map((e) => Map<String, dynamic>.from(e as Map))
@@ -521,7 +519,7 @@ class _CenterStocksTabState extends State<_CenterStocksTab> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Stocks',
+              Text(context.l10n.centerNavStocks,
                   style: context.textStyles.titleLarge
                       ?.copyWith(fontWeight: FontWeight.bold)),
               IconButton(
@@ -537,15 +535,14 @@ class _CenterStocksTabState extends State<_CenterStocksTab> {
               if (snap.connectionState == ConnectionState.waiting)
                 return const LinearProgressIndicator();
               if (snap.hasError)
-                return Text('Impossible de charger les stocks.',
+                return Text(context.l10n.centerStocksLoadFailed,
                     style: const TextStyle(color: Colors.red));
               final rows = snap.data ?? const <Map<String, dynamic>>[];
               if (rows.isEmpty) {
                 return _CenterEmptyStateCard(
                     icon: Icons.inventory_2_outlined,
-                    title: 'Aucun stock enregistré',
-                    subtitle:
-                        'Ajoutez des événements de traitement via la réception.');
+                    title: context.l10n.centerNoStockTitle,
+                    subtitle: context.l10n.centerNoStockSubtitle);
               }
               final byType = _sumByType(rows);
               final total = byType.values.fold<double>(0, (a, b) => a + b);
@@ -563,7 +560,7 @@ class _CenterStocksTabState extends State<_CenterStocksTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Volume total traité',
+                        Text(context.l10n.centerTotalVolumeProcessed,
                             style: context.textStyles.titleSmall
                                 ?.copyWith(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
@@ -755,20 +752,20 @@ class _CenterEmptyStateCard extends StatelessWidget {
   }
 }
 
-String _statusLabelFr(String status) {
+String _statusLabel(BuildContext context, String status) {
   switch (status) {
     case 'pending':
-      return 'EN ATTENTE';
+      return context.l10n.statusPending;
     case 'accepted':
-      return 'ACCEPTEE';
+      return context.l10n.statusAccepted;
     case 'en_route':
-      return 'EN ROUTE';
+      return context.l10n.statusEnRoute;
     case 'collected':
-      return 'COLLECTEE';
+      return context.l10n.statusCollected;
     case 'delivered':
-      return 'LIVREE';
+      return context.l10n.statusDelivered;
     case 'cancelled':
-      return 'ANNULEE';
+      return context.l10n.statusCancelled;
     default:
       return status.toUpperCase();
   }
@@ -786,8 +783,8 @@ class ReceptionFormScreen extends StatelessWidget {
     final id = requestId;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Réception de Déchets',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: Text(context.l10n.centerReceptionTitle,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
           IconButton(
@@ -798,15 +795,15 @@ class ReceptionFormScreen extends StatelessWidget {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 0,
         type: BottomNavigationBarType.fixed,
-        items: const [
+        items: [
           BottomNavigationBarItem(
-              icon: Icon(Icons.qr_code_scanner), label: 'Réception'),
+              icon: const Icon(Icons.qr_code_scanner), label: context.l10n.centerNavReceptionShort),
           BottomNavigationBarItem(
-              icon: Icon(Icons.cases_outlined), label: 'Missions'),
+              icon: const Icon(Icons.cases_outlined), label: context.l10n.centerNavMissions),
           BottomNavigationBarItem(
-              icon: Icon(Icons.inventory_2_outlined), label: 'Stock'),
+              icon: const Icon(Icons.inventory_2_outlined), label: context.l10n.centerNavStockShort),
           BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline), label: 'Profil'),
+              icon: const Icon(Icons.person_outline), label: context.l10n.profileTitle),
         ],
       ),
     );
@@ -886,7 +883,7 @@ class _ReceptionFormBodyState extends State<_ReceptionFormBody> {
     if (id == null || id.trim().isEmpty) return;
     final kg = _parseKg();
     if (kg <= 0) {
-      AppSnackbars.warning(context, 'Entrez un poids valide (kg).');
+      AppSnackbars.warning(context, context.l10n.centerEnterValidWeight);
       return;
     }
     setState(() => _loading = true);
@@ -894,13 +891,12 @@ class _ReceptionFormBodyState extends State<_ReceptionFormBody> {
       await WasteRequestService().confirmReceptionAtCenter(
           requestId: id, weighedKg: kg, accepted: true);
       if (!mounted) return;
-      AppSnackbars.success(context,
-          'Paiement accepté: réception confirmée et crédit envoyé au collecteur.');
+      AppSnackbars.success(context, context.l10n.centerPaymentAcceptedMessage);
       context.pop();
     } catch (e) {
       debugPrint('Confirm reception failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, 'Confirmation échouée.');
+      AppSnackbars.error(context, context.l10n.centerConfirmationFailed);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -916,14 +912,14 @@ class _ReceptionFormBodyState extends State<_ReceptionFormBody> {
           if (snap.connectionState == ConnectionState.waiting)
             return const LinearProgressIndicator();
           if (snap.hasError)
-            return Text('Impossible de charger la mission.',
+            return Text(context.l10n.centerMissionLoadFailed,
                 style: const TextStyle(color: Colors.red));
           final data = snap.data;
           if (data == null) {
             return _CenterEmptyStateCard(
                 icon: Icons.qr_code_scanner,
-                title: 'Mission introuvable',
-                subtitle: 'Revenez à la liste des livraisons puis réessayez.');
+                title: context.l10n.centerMissionNotFoundTitle,
+                subtitle: context.l10n.centerMissionNotFoundSubtitle);
           }
 
           final reqId = (data['id'] ?? '').toString();
@@ -983,8 +979,8 @@ class _ReceptionFormBodyState extends State<_ReceptionFormBody> {
                           Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('Collecteur',
-                                    style: TextStyle(
+                                Text(context.l10n.centerCollectorLabel,
+                                    style: const TextStyle(
                                         fontSize: 10, color: Colors.grey)),
                                 const SizedBox(height: 4),
                                 Row(children: [
@@ -1001,15 +997,15 @@ class _ReceptionFormBodyState extends State<_ReceptionFormBody> {
                                           fontSize: 12)),
                                 ]),
                               ]),
-                          const Column(
+                          Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                Text('Paiement',
-                                    style: TextStyle(
+                                Text(context.l10n.centerPaymentLabel,
+                                    style: const TextStyle(
                                         fontSize: 10, color: Colors.grey)),
-                                SizedBox(height: 4),
-                                Text('Virtuel',
-                                    style: TextStyle(
+                                const SizedBox(height: 4),
+                                Text(context.l10n.centerVirtualPayment,
+                                    style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 12)),
                               ])
@@ -1035,13 +1031,13 @@ class _ReceptionFormBodyState extends State<_ReceptionFormBody> {
                             'Open request chat (center→collector) failed: $e');
                         if (!context.mounted) return;
                         AppSnackbars.error(
-                            context, 'Impossible d’ouvrir le chat.');
+                            context, context.l10n.errorCannotOpenChat);
                       }
                     },
                     icon: const Icon(Icons.chat_bubble_outline),
                     label: Text(collectorName.isEmpty
-                        ? 'Contacter le collecteur'
-                        : 'Contacter $collectorName'),
+                        ? context.l10n.centerContactCollectorGeneric
+                        : context.l10n.centerContactNamed(collectorName)),
                   ),
                 ),
               ],
@@ -1063,19 +1059,19 @@ class _ReceptionFormBodyState extends State<_ReceptionFormBody> {
                             'Open request chat (center→generator) failed: $e');
                         if (!context.mounted) return;
                         AppSnackbars.error(
-                            context, 'Impossible d’ouvrir le chat.');
+                            context, context.l10n.errorCannotOpenChat);
                       }
                     },
                     icon: const Icon(Icons.chat_bubble_outline),
                     label: Text(generatorName.isEmpty
-                        ? 'Contacter le générateur'
-                        : 'Contacter $generatorName'),
+                        ? context.l10n.centerContactGeneratorGeneric
+                        : context.l10n.centerContactNamed(generatorName)),
                   ),
                 ),
               ],
               const SizedBox(height: 24),
-              const Text('Type de dechet',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              Text(context.l10n.centerWasteTypeLabel,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
               const SizedBox(height: 8),
               Container(
                 padding: AppSpacing.paddingMd,
@@ -1093,8 +1089,8 @@ class _ReceptionFormBodyState extends State<_ReceptionFormBody> {
                 ]),
               ),
               const SizedBox(height: 24),
-              const Text('Poids reel mesure (kg)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              Text(context.l10n.centerActualWeightLabel,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
               const SizedBox(height: 8),
               TextField(
                 controller: _kgController,
@@ -1122,7 +1118,7 @@ class _ReceptionFormBodyState extends State<_ReceptionFormBody> {
               const SizedBox(height: 8),
               Center(
                   child: Text(
-                      'Poids estimé lors de la mission : ${estKg.toStringAsFixed(1)} kg',
+                      context.l10n.centerEstimatedWeightNote(estKg.toStringAsFixed(1)),
                       style:
                           const TextStyle(color: Colors.grey, fontSize: 10))),
               const SizedBox(height: 24),
@@ -1135,21 +1131,21 @@ class _ReceptionFormBodyState extends State<_ReceptionFormBody> {
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Row(
+                      : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                              Icon(Icons.check_circle_outline),
-                              SizedBox(width: 8),
-                              Text('Confirmer la Réception')
+                              const Icon(Icons.check_circle_outline),
+                              const SizedBox(width: 8),
+                              Text(context.l10n.centerConfirmReceptionButton)
                             ]),
                 ),
               ),
               const SizedBox(height: 16),
-              const Center(
+              Center(
                 child: Text(
-                    'Cette action credite automatiquement le collecteur (paiement virtuel).',
+                    context.l10n.centerAutoCreditNote,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey, fontSize: 10)),
+                    style: const TextStyle(color: Colors.grey, fontSize: 10)),
               ),
               const SizedBox(height: 80),
             ],

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:cleancity/nav.dart';
 import 'package:cleancity/models/app_user.dart';
 import 'package:cleancity/components/app_error_handler.dart';
+import 'package:cleancity/components/app_snackbars.dart';
 import 'package:cleancity/services/app_user_service.dart';
 import '../theme.dart';
 
@@ -59,28 +60,28 @@ class _AdminDashboardState extends State<AdminDashboard> {
               children: [
                 Icon(Icons.eco, color: LightModeColors.lightPrimary),
                 const SizedBox(width: 12),
-                const Column(
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('CLEANCITY',
+                    const Text('CLEANCITY',
                         style: TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text('CAMEROUN ADMIN',
-                        style: TextStyle(fontSize: 10, color: Colors.grey)),
+                    Text(context.l10n.adminBrandSubtitle,
+                        style: const TextStyle(fontSize: 10, color: Colors.grey)),
                   ],
                 ),
               ],
             ),
           ),
           const Divider(),
-          _buildNavItem(0, Icons.dashboard_outlined, 'Tableau de bord'),
-          _buildNavItem(1, Icons.people_outline, 'Gestion des utilisateurs'),
-          _buildNavItem(2, Icons.recycling_outlined, 'Catalogue des dechets'),
-          _buildNavItem(3, Icons.bar_chart_outlined, 'Rapports'),
-          _buildNavItem(4, Icons.settings_outlined, 'Parametres'),
+          _buildNavItem(0, Icons.dashboard_outlined, context.l10n.adminNavDashboard),
+          _buildNavItem(1, Icons.people_outline, context.l10n.adminNavUsers),
+          _buildNavItem(2, Icons.recycling_outlined, context.l10n.adminNavCatalog),
+          _buildNavItem(3, Icons.bar_chart_outlined, context.l10n.adminNavReports),
+          _buildNavItem(4, Icons.settings_outlined, context.l10n.adminNavSettings),
           const Spacer(),
           const Divider(),
-          _buildNavItem(5, Icons.logout, 'Se deconnecter', isLogout: true),
+          _buildNavItem(5, Icons.logout, context.l10n.commonLogout, isLogout: true),
           const SizedBox(height: 24),
         ],
       ),
@@ -143,7 +144,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           child: Row(
             children: [
               IconButton(
-                tooltip: 'Retour',
+                tooltip: context.l10n.commonBack,
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () {
                   if (context.canPop()) {
@@ -166,15 +167,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     decoration: BoxDecoration(
                         color: Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(20)),
-                    child: const TextField(
+                    child: TextField(
                       decoration: InputDecoration(
-                        hintText: 'Rechercher…',
-                        hintStyle: TextStyle(fontSize: 14),
-                        prefixIcon: Icon(Icons.search, size: 20),
+                        hintText: context.l10n.adminQuickSearchHint,
+                        hintStyle: const TextStyle(fontSize: 14),
+                        prefixIcon: const Icon(Icons.search, size: 20),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
                       ),
                     ),
                   ),
@@ -183,7 +184,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 const Spacer(),
               if (!showSearchField)
                 IconButton(
-                  tooltip: 'Rechercher',
+                  tooltip: context.l10n.commonSearch,
                   icon: const Icon(Icons.search),
                   onPressed: () {},
                 ),
@@ -223,7 +224,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case 2:
         return const WasteCatalogView();
       default:
-        return const Center(child: Text('En construction'));
+        return Center(child: Text(context.l10n.adminUnderConstruction));
     }
   }
 }
@@ -252,20 +253,20 @@ class DashboardView extends StatelessWidget {
                 children: [
                   SizedBox(
                       width: statCardWidth,
-                      child: _buildStatCard('Dechets collectes', '1,250',
-                          'Tonnes', '+12.5% vs mois precedent', Colors.green)),
+                      child: _buildStatCard(context.l10n.adminStatWasteCollected, '1,250',
+                          context.l10n.adminUnitTonnes, context.l10n.adminStatVsLastMonth('+12.5%'), Colors.green)),
                   SizedBox(
                       width: statCardWidth,
-                      child: _buildStatCard('Collecteurs actifs', '482', '',
-                          '+5.2% vs mois precedent', Colors.blue)),
+                      child: _buildStatCard(context.l10n.adminStatActiveCollectors, '482', '',
+                          context.l10n.adminStatVsLastMonth('+5.2%'), Colors.blue)),
                   SizedBox(
                       width: statCardWidth,
-                      child: _buildStatCard('Taux de revalorisation', '64%', '',
-                          'Objectif: 70%', Colors.orange)),
+                      child: _buildStatCard(context.l10n.adminStatRecoveryRate, '64%', '',
+                          context.l10n.adminStatRecoveryGoal, Colors.orange)),
                   SizedBox(
                       width: statCardWidth,
-                      child: _buildStatCard('Revenus totaux', '45.0M', 'XAF',
-                          '+1.2% vs mois precedent', Colors.purple)),
+                      child: _buildStatCard(context.l10n.adminStatTotalRevenue, '45.0M', 'XAF',
+                          context.l10n.adminStatVsLastMonth('+1.2%'), Colors.purple)),
                 ],
               ),
               const SizedBox(height: 24),
@@ -411,12 +412,12 @@ class _HeatmapPanel extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Carte des demandes actives',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(context.l10n.adminHeatmapTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ElevatedButton.icon(
                 onPressed: () {},
                 icon: const Icon(Icons.add, size: 16),
-                label: const Text('Systeme en direct'),
+                label: Text(context.l10n.adminLiveSystemButton),
                 style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green.shade50,
                     foregroundColor: Colors.green,
@@ -424,8 +425,8 @@ class _HeatmapPanel extends StatelessWidget {
               ),
             ],
           ),
-          const Text('Suivi global des operations pour Yaounde et Douala',
-              style: TextStyle(color: Colors.grey, fontSize: 12)),
+          Text(context.l10n.adminHeatmapSubtitle,
+              style: const TextStyle(color: Colors.grey, fontSize: 12)),
           const SizedBox(height: 16),
           Expanded(
             child: Container(
@@ -500,35 +501,35 @@ class _RecentOperationsPanel extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Operations recentes',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              TextButton(onPressed: () {}, child: const Text('Tout voir')),
+              Text(context.l10n.adminRecentOpsTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              TextButton(onPressed: () {}, child: Text(context.l10n.adminSeeAll)),
             ],
           ),
           const SizedBox(height: 16),
           Expanded(
             child: ListView(
-              children: const [
+              children: [
                 _OperationItem(
-                    type: 'Dechet plastique',
+                    type: context.l10n.adminWastePlastic,
                     location: 'Bastos, Yaoundé',
                     person: 'M. Tabi',
                     icon: Icons.local_drink,
                     color: Colors.blue),
                 _OperationItem(
-                    type: 'Charge organique',
+                    type: context.l10n.adminWasteOrganic,
                     location: 'Akwa, Douala',
                     person: 'J. Ngono',
                     icon: Icons.eco,
                     color: Colors.green),
                 _OperationItem(
-                    type: 'Dechet medical',
+                    type: context.l10n.adminWasteMedical,
                     location: 'Hôpital Central',
                     person: 'P. Eloundou',
                     icon: Icons.medical_services,
                     color: Colors.red),
                 _OperationItem(
-                    type: 'Carton/Papier',
+                    type: context.l10n.adminWasteCardboard,
                     location: 'Bonamoussadi',
                     person: "E. Eto'o",
                     icon: Icons.inventory_2,
@@ -653,8 +654,8 @@ class _UserManagementViewState extends State<UserManagementView> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Gestion des utilisateurs',
-                        style: TextStyle(
+                    Text(context.l10n.adminNavUsers,
+                        style: const TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 24)),
                     const SizedBox(height: 12),
                     Row(
@@ -663,7 +664,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                             child: _AdminSearchField(controller: _searchCtrl)),
                         const SizedBox(width: 12),
                         IconButton(
-                            tooltip: 'Actualiser',
+                            tooltip: context.l10n.commonRefresh,
                             onPressed: _refresh,
                             icon: const Icon(Icons.refresh)),
                       ],
@@ -673,16 +674,16 @@ class _UserManagementViewState extends State<UserManagementView> {
               else
                 Row(
                   children: [
-                    const Expanded(
-                        child: Text('Gestion des utilisateurs',
-                            style: TextStyle(
+                    Expanded(
+                        child: Text(context.l10n.adminNavUsers,
+                            style: const TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 24))),
                     SizedBox(
                         width: 360,
                         child: _AdminSearchField(controller: _searchCtrl)),
                     const SizedBox(width: 12),
                     IconButton(
-                        tooltip: 'Actualiser',
+                        tooltip: context.l10n.commonRefresh,
                         onPressed: _refresh,
                         icon: const Icon(Icons.refresh)),
                   ],
@@ -717,8 +718,8 @@ class _UserManagementViewState extends State<UserManagementView> {
 
                       final users = snapshot.data ?? const <AppUser>[];
                       if (users.isEmpty) {
-                        return const Center(
-                            child: Text('Aucun utilisateur trouve.'));
+                        return Center(
+                            child: Text(context.l10n.adminNoUsersFound));
                       }
 
                       return SingleChildScrollView(
@@ -729,45 +730,51 @@ class _UserManagementViewState extends State<UserManagementView> {
                             headingRowHeight: 44,
                             dataRowMinHeight: 56,
                             dataRowMaxHeight: 64,
-                            columns: const [
+                            columns: [
                               DataColumn(
-                                  label: Text('NOM',
-                                      style: TextStyle(
+                                  label: Text(context.l10n.adminColName,
+                                      style: const TextStyle(
                                           color: Colors.grey,
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold))),
                               DataColumn(
-                                  label: Text('EMAIL',
-                                      style: TextStyle(
+                                  label: Text(context.l10n.adminColEmail,
+                                      style: const TextStyle(
                                           color: Colors.grey,
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold))),
                               DataColumn(
-                                  label: Text('ROLE',
-                                      style: TextStyle(
+                                  label: Text(context.l10n.adminColRole,
+                                      style: const TextStyle(
                                           color: Colors.grey,
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold))),
                               DataColumn(
-                                  label: Text('LANGUE',
-                                      style: TextStyle(
+                                  label: Text(context.l10n.adminColLanguage,
+                                      style: const TextStyle(
                                           color: Colors.grey,
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold))),
                               DataColumn(
-                                  label: Text('TELEPHONE',
-                                      style: TextStyle(
+                                  label: Text(context.l10n.adminColPhone,
+                                      style: const TextStyle(
                                           color: Colors.grey,
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold))),
                               DataColumn(
-                                  label: Text('CREE LE',
-                                      style: TextStyle(
+                                  label: Text(context.l10n.adminColCreatedAt,
+                                      style: const TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold))),
+                              DataColumn(
+                                  label: Text(context.l10n.adminColActions,
+                                      style: const TextStyle(
                                           color: Colors.grey,
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold))),
                             ],
-                            rows: users.map(_buildRow).toList(growable: false),
+                            rows: users.map((u) => _buildRow(context, u)).toList(growable: false),
                           ),
                         ),
                       );
@@ -782,9 +789,9 @@ class _UserManagementViewState extends State<UserManagementView> {
     );
   }
 
-  DataRow _buildRow(AppUser u) {
+  DataRow _buildRow(BuildContext context, AppUser u) {
     final name = (u.fullName?.trim().isNotEmpty ?? false)
-        ? u.displayNameCapitalized()
+        ? u.displayNameCapitalized(context)
         : '—';
     final created = _formatDate(u.createdAt);
     return DataRow(
@@ -812,9 +819,14 @@ class _UserManagementViewState extends State<UserManagementView> {
             constraints: const BoxConstraints(maxWidth: 260),
             child: Text(u.email, overflow: TextOverflow.ellipsis))),
         DataCell(_RoleBadge(role: u.role)),
-        DataCell(Text(u.preferredLanguage == 'en' ? 'ANGLAIS' : 'FRANCAIS')),
+        DataCell(Text(u.preferredLanguage == 'en' ? context.l10n.commonLanguageEnglish : context.l10n.commonLanguageFrench)),
         DataCell(Text(u.phoneE164.isEmpty ? '—' : u.phoneE164)),
         DataCell(Text(created)),
+        DataCell(_RoleActionMenu(
+          user: u,
+          isSelf: u.id == _userService.currentUserId,
+          onChanged: _refresh,
+        )),
       ],
     );
   }
@@ -843,11 +855,11 @@ class _AdminErrorPanel extends StatelessWidget {
             children: [
               Icon(Icons.lock_outline, size: 36, color: Colors.grey.shade600),
               const SizedBox(height: 12),
-              const Text('Impossible de charger les utilisateurs',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(context.l10n.adminUsersLoadFailedTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 8),
               Text(
-                '${AppErrorHandler.toUserMessage(error ?? Exception('unknown'))}\nVerifiez vos policies RLS administrateur.',
+                AppErrorHandler.toUserMessage(context, error ?? Exception('unknown')),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey.shade700, height: 1.4),
               ),
@@ -869,7 +881,7 @@ class _AdminSearchField extends StatelessWidget {
     return TextField(
       controller: controller,
       decoration: InputDecoration(
-        hintText: 'Rechercher par nom ou email',
+        hintText: context.l10n.adminSearchByNameEmailHint,
         prefixIcon: const Icon(Icons.search),
         filled: true,
         fillColor: Colors.white,
@@ -910,7 +922,7 @@ class _RoleBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration:
           BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
-      child: Text(_roleLabelFr(role),
+      child: Text(_roleLabel(context, role),
           style:
               TextStyle(color: fg, fontSize: 12, fontWeight: FontWeight.w700)),
     );
@@ -925,12 +937,12 @@ class _RoleChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final entries = const [
-      ('all', 'Tous'),
-      ('generator', 'Generateurs'),
-      ('collector', 'Collecteurs'),
-      ('center', 'Centres'),
-      ('admin', 'Admins'),
+    final entries = [
+      ('all', context.l10n.adminFilterAll),
+      ('generator', context.l10n.adminFilterGenerators),
+      ('collector', context.l10n.adminFilterCollectors),
+      ('center', context.l10n.adminFilterCenters),
+      ('admin', context.l10n.adminFilterAdmins),
     ];
 
     return Wrap(
@@ -966,21 +978,76 @@ class WasteCatalogView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-        child: Text('Catalogue des dechets - Bientot disponible'));
+    return Center(
+        child: Text(context.l10n.adminCatalogComingSoon));
   }
 }
 
-String _roleLabelFr(String role) {
+class _RoleActionMenu extends StatelessWidget {
+  const _RoleActionMenu({required this.user, required this.isSelf, required this.onChanged});
+
+  final AppUser user;
+  final bool isSelf;
+  final VoidCallback onChanged;
+
+  static const _roles = ['generator', 'collector', 'center', 'admin'];
+
+  Future<void> _changeRole(BuildContext context, String role) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(context.l10n.adminChangeRoleDialogTitle),
+        content: Text(context.l10n.adminChangeRoleDialogContent(
+            user.displayNameCapitalized(context), user.email, _roleLabel(context, user.role), _roleLabel(context, role))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(context.l10n.commonCancel)),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(context.l10n.commonConfirm)),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await AppUserService().adminUpdateUserRole(userId: user.id, role: role);
+      if (!context.mounted) return;
+      AppSnackbars.success(context, context.l10n.adminRoleUpdated);
+      onChanged();
+    } catch (e) {
+      if (!context.mounted) return;
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isSelf) {
+      return Tooltip(
+        message: context.l10n.adminCannotChangeOwnRole,
+        child: Icon(Icons.lock_outline, size: 18, color: Colors.grey.shade400),
+      );
+    }
+    return PopupMenuButton<String>(
+      tooltip: context.l10n.adminChangeRoleTooltip,
+      icon: const Icon(Icons.edit_outlined, size: 20),
+      onSelected: (role) => _changeRole(context, role),
+      itemBuilder: (context) => _roles
+          .where((r) => r != user.role)
+          .map((r) => PopupMenuItem<String>(value: r, child: Text(_roleLabel(context, r))))
+          .toList(),
+    );
+  }
+}
+
+String _roleLabel(BuildContext context, String role) {
   switch (role) {
     case 'admin':
-      return 'ADMIN';
+      return context.l10n.roleAdmin;
     case 'collector':
-      return 'COLLECTEUR';
+      return context.l10n.roleCollector;
     case 'center':
     case 'processing_center':
-      return 'CENTRE';
+      return context.l10n.roleCenter;
     default:
-      return 'GENERATEUR';
+      return context.l10n.roleGenerator;
   }
 }

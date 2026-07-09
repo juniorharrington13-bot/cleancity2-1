@@ -1,24 +1,25 @@
 import 'package:cleancity/nav.dart';
 import 'package:cleancity/components/app_error_handler.dart';
+import 'package:cleancity/l10n/generated/app_localizations.dart';
+import 'package:cleancity/services/locale_provider.dart';
 import 'package:cleancity/supabase/supabase_config.dart';
 import 'package:cleancity/services/push_notification_service.dart';
 import 'package:cleancity/theme.dart';
 import 'package:flutter/material.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:provider/provider.dart';
 
 /// Main entry point for the application
 ///
 /// This sets up:
-/// - Provider state management (ThemeProvider, CounterProvider)
+/// - Provider state management (LocaleProvider)
 /// - go_router navigation
 /// - Material 3 theming with light/dark modes
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   ErrorWidget.builder = AppErrorHandler.buildGlobalErrorWidget;
 
-  MapboxOptions.setAccessToken(
-    const String.fromEnvironment('MAPBOX_ACCESS_TOKEN'),
-  );
+  final localeProvider = LocaleProvider();
+  await localeProvider.initialize();
 
   try {
     await SupabaseConfig.initialize();
@@ -30,39 +31,40 @@ Future<void> main() async {
   // Push notifications (OneSignal). Safe no-op if not configured.
   await PushNotificationService.initialize();
 
-  runApp(const MyApp());
+  runApp(MyApp(localeProvider: localeProvider));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, required this.localeProvider});
+
+  final LocaleProvider localeProvider;
 
   @override
   Widget build(BuildContext context) {
-    // MultiProvider wraps the app to provide state to all widgets
-    // As you extend the app, use MultiProvider to wrap the app
-    // and provide state to all widgets
-    // Example:
-    // return MultiProvider(
-    //   providers: [
-    //     ChangeNotifierProvider(create: (_) => ExampleProvider()),
-    //   ],
-    //   child: MaterialApp.router(
-    //     title: 'Dreamflow Starter',
-    //     debugShowCheckedModeBanner: false,
-    //     routerConfig: AppRouter.router,
-    //   ),
-    // );
-    return MaterialApp.router(
-      title: 'CLEANCITY Cameroon',
-      debugShowCheckedModeBanner: false,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<LocaleProvider>.value(value: localeProvider),
+      ],
+      child: Consumer<LocaleProvider>(
+        builder: (context, locale, _) => MaterialApp.router(
+          title: 'CLEANCITY Cameroon',
+          debugShowCheckedModeBanner: false,
 
-      // Theme configuration
-      theme: lightTheme,
-      darkTheme: darkTheme,
-      themeMode: ThemeMode.system,
+          // Theme configuration
+          theme: lightTheme,
+          darkTheme: darkTheme,
+          themeMode: ThemeMode.system,
 
-      // Use context.go() or context.push() to navigate to the routes.
-      routerConfig: AppRouter.router,
+          // Localization: app language follows LocaleProvider, which is
+          // wired to the user's saved preference / local choice.
+          locale: locale.locale,
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+
+          // Use context.go() or context.push() to navigate to the routes.
+          routerConfig: AppRouter.router,
+        ),
+      ),
     );
   }
 }

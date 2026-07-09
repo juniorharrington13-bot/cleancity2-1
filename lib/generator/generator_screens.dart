@@ -54,7 +54,7 @@ class _GeneratorDashboardState extends State<GeneratorDashboard> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         leading: IconButton(
-          tooltip: 'Retour',
+          tooltip: context.l10n.commonBack,
           icon: Icon(Icons.arrow_back,
               color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => _handleBack(context),
@@ -71,11 +71,11 @@ class _GeneratorDashboardState extends State<GeneratorDashboard> {
               builder: (context, snap) {
                 final name = (snap.data?.fullName?.trim().isNotEmpty ?? false)
                     ? snap.data!.fullName!.trim()
-                    : 'Utilisateur';
+                    : context.l10n.commonUser;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Bonjour,',
+                    Text(context.l10n.generatorGreeting,
                         style: context.textStyles.labelSmall?.copyWith(
                             color: LightModeColors.lightOnSurfaceVariant)),
                     Text(name,
@@ -90,14 +90,14 @@ class _GeneratorDashboardState extends State<GeneratorDashboard> {
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_none),
-            tooltip: 'Notifications',
+            tooltip: context.l10n.generatorNotificationsTooltip,
             onPressed: () async {
               final ok = await PushNotificationService.requestPermission();
               if (!context.mounted) return;
               if (ok) {
-                AppSnackbars.success(context, 'Notifications activées.');
+                AppSnackbars.success(context, context.l10n.generatorNotificationsEnabled);
               } else {
-                AppSnackbars.warning(context, 'Notifications non autorisées.');
+                AppSnackbars.warning(context, context.l10n.generatorNotificationsDenied);
               }
             },
           ),
@@ -115,16 +115,16 @@ class _GeneratorDashboardState extends State<GeneratorDashboard> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _index,
         onTap: (i) => setState(() => _index = i),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
+        items: [
+          BottomNavigationBarItem(icon: const Icon(Icons.home), label: context.l10n.generatorNavHome),
           BottomNavigationBarItem(
-              icon: Icon(Icons.list_alt), label: 'Demandes'),
+              icon: const Icon(Icons.list_alt), label: context.l10n.generatorNavRequests),
           BottomNavigationBarItem(
-              icon: Icon(Icons.map_outlined), label: 'Carte'),
+              icon: const Icon(Icons.map_outlined), label: context.l10n.collectorNavMap),
           BottomNavigationBarItem(
-              icon: Icon(Icons.forum_outlined), label: 'Chat'),
+              icon: const Icon(Icons.forum_outlined), label: context.l10n.chatTitle),
           BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline), label: 'Profil'),
+              icon: const Icon(Icons.person_outline), label: context.l10n.profileTitle),
         ],
       ),
     );
@@ -153,7 +153,7 @@ class _GeneratorHomeTab extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Points Éco cumulés',
+                    Text(context.l10n.generatorEcoPointsTitle,
                         style: context.textStyles.bodyMedium?.copyWith(
                             color: LightModeColors.lightOnPrimary
                                 .withValues(alpha: 0.8))),
@@ -194,13 +194,13 @@ class _GeneratorHomeTab extends StatelessWidget {
                   Expanded(
                       child: _StatCard(
                           icon: Icons.pending_actions,
-                          label: 'En attente',
+                          label: context.l10n.generatorStatPending,
                           value: '$pending')),
                   const SizedBox(width: 16),
                   Expanded(
                       child: _StatCard(
                           icon: Icons.check_circle_outline,
-                          label: 'Terminées',
+                          label: context.l10n.generatorStatCompleted,
                           value: '$done')),
                 ],
               );
@@ -210,7 +210,7 @@ class _GeneratorHomeTab extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Demandes récentes',
+              Text(context.l10n.generatorRecentRequestsTitle,
                   style: context.textStyles.titleMedium
                       ?.copyWith(fontWeight: FontWeight.bold)),
               TextButton(
@@ -237,13 +237,13 @@ class _GeneratorHomeTab extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Conseil Éco du jour',
+                      Text(context.l10n.generatorEcoTipTitle,
                           style: context.textStyles.titleSmall?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: LightModeColors.lightPrimary)),
                       const SizedBox(height: 4),
                       Text(
-                          'Séparez vos déchets (plastique/papier/verre) pour gagner plus de points.',
+                          context.l10n.generatorEcoTipBody,
                           style: context.textStyles.bodySmall?.copyWith(
                               color: LightModeColors.lightOnPrimaryContainer)),
                     ],
@@ -288,9 +288,8 @@ class _RecentRequestsPreviewState extends State<_RecentRequestsPreview> {
         if (items.isEmpty) {
           return _EmptyStateCard(
             icon: Icons.inbox_outlined,
-            title: 'Aucune demande pour le moment',
-            subtitle:
-                'Créez votre première demande de collecte en appuyant sur +.',
+            title: context.l10n.generatorNoRequestsTitle,
+            subtitle: context.l10n.generatorNoRequestsSubtitle,
           );
         }
         return Column(
@@ -335,7 +334,7 @@ class _GeneratorRequestsTabState extends State<_GeneratorRequestsTab> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Mes demandes',
+              Text(context.l10n.generatorMyRequestsTitle,
                   style: context.textStyles.titleLarge
                       ?.copyWith(fontWeight: FontWeight.bold)),
               IconButton(
@@ -357,8 +356,8 @@ class _GeneratorRequestsTabState extends State<_GeneratorRequestsTab> {
               if (items.isEmpty) {
                 return _EmptyStateCard(
                   icon: Icons.list_alt_outlined,
-                  title: 'Aucune demande',
-                  subtitle: 'Appuyez sur + pour créer une demande.',
+                  title: context.l10n.generatorNoRequestsShortTitle,
+                  subtitle: context.l10n.generatorNoRequestsShortSubtitle,
                 );
               }
               return Column(
@@ -414,9 +413,9 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
       final enabled = await Geolocator.isLocationServiceEnabled();
       if (!enabled) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content:
-                Text('Activez la localisation (GPS) pour utiliser la carte.')));
+                Text(context.l10n.collectorEnableLocation)));
         return;
       }
 
@@ -426,8 +425,8 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
       if (perm == LocationPermission.denied ||
           perm == LocationPermission.deniedForever) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Autorisation localisation refusée.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(context.l10n.collectorLocationPermissionDenied)));
         return;
       }
 
@@ -442,7 +441,7 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
       debugPrint('Map locate failed: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Localisation échouée: $e')));
+          .showSnackBar(SnackBar(content: Text(AppErrorHandler.toUserMessage(context, e))));
     } finally {
       if (mounted) setState(() => _locating = false);
     }
@@ -474,7 +473,7 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
     if (!mounted) return;
     if (latLng == null) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Adresse introuvable.')));
+          .showSnackBar(SnackBar(content: Text(context.l10n.collectorAddressNotFound)));
       return;
     }
     setState(() {
@@ -496,9 +495,8 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
     if (_routing) return;
     if (!_maps.isRoutingConfigured) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text(
-              'Token Mapbox manquant: impossible de calculer l’itinéraire.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(context.l10n.collectorRoutingNotConfiguredNote)));
       return;
     }
     setState(() => _routing = true);
@@ -507,7 +505,7 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
       if (!mounted) return;
       if (dir == null || dir.polylinePoints.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Itinéraire indisponible.')));
+            SnackBar(content: Text(context.l10n.collectorRouteUnavailable)));
         return;
       }
       setState(() {
@@ -521,7 +519,7 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
       debugPrint('Route build failed: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Erreur itinéraire: $e')));
+          .showSnackBar(SnackBar(content: Text(AppErrorHandler.toUserMessage(context, e))));
     } finally {
       if (mounted) setState(() => _routing = false);
     }
@@ -545,7 +543,7 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
     return ListView(
       padding: AppSpacing.paddingLg,
       children: [
-        Text('Carte',
+        Text(context.l10n.collectorNavMap,
             style: context.textStyles.titleLarge
                 ?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
@@ -565,13 +563,13 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
                       controller: _searchCtrl,
                       onChanged: _updateSuggestions,
                       decoration: InputDecoration(
-                        hintText: 'Rechercher une adresse (Douala, Yaoundé...)',
+                        hintText: context.l10n.generatorAddressSearchHint,
                         prefixIcon: Icon(Icons.search,
                             color: LightModeColors.lightPrimary),
                         suffixIcon: _searchCtrl.text.trim().isEmpty
                             ? null
                             : IconButton(
-                                tooltip: 'Effacer',
+                                tooltip: context.l10n.commonClear,
                                 onPressed: () => setState(() {
                                   _searchCtrl.clear();
                                   _suggestions = const [];
@@ -595,7 +593,7 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.my_location),
-                    label: const Text('Moi'),
+                    label: Text(context.l10n.collectorMyLocationButton),
                   ),
                 ],
               ),
@@ -603,7 +601,7 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
                 Padding(
                   padding: const EdgeInsets.only(top: 10),
                   child: Text(
-                    'Itinéraire: définis OPEN_ROUTE_SERVICE_API_KEY (clé gratuite OpenRouteService). La recherche & l\'affichage OSM restent disponibles sans clé.',
+                    context.l10n.collectorRoutingNotConfiguredNote,
                     style: context.textStyles.bodySmall?.copyWith(
                         color: LightModeColors.lightOnSurfaceVariant),
                   ),
@@ -643,7 +641,7 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
                         Chip(
                           avatar: Icon(Icons.person_pin_circle,
                               color: LightModeColors.lightPrimary),
-                          label: const Text('Ma position'),
+                          label: Text(context.l10n.collectorMyPositionChip),
                         ),
                       if (_destinationLabel != null)
                         Chip(
@@ -662,7 +660,7 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
                                       CircularProgressIndicator(strokeWidth: 2))
                               : Icon(Icons.alt_route,
                                   color: LightModeColors.lightPrimary),
-                          label: Text(_routing ? 'Calcul...' : 'Itinéraire'),
+                          label: Text(_routing ? context.l10n.collectorCalculating : context.l10n.collectorRouteChipLabel),
                           onPressed: _routing ? null : _buildRoute,
                         ),
                     ],
@@ -789,7 +787,7 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
         ),
         const SizedBox(height: 10),
         Text(
-            'Pins affichés si addresses.latitude/longitude sont remplis. Astuce: active “Moi” puis sélectionne une destination pour l’itinéraire.',
+            context.l10n.generatorMapHint,
             style: context.textStyles.bodySmall
                 ?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
         const SizedBox(height: 16),
@@ -800,9 +798,8 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
             if (items.isEmpty) {
               return _EmptyStateCard(
                   icon: Icons.place_outlined,
-                  title: 'Aucun point à afficher',
-                  subtitle:
-                      'Créez une demande avec une adresse pour la voir ici.');
+                  title: context.l10n.generatorNoPinsTitle,
+                  subtitle: context.l10n.generatorNoPinsSubtitle);
             }
             return Column(
               children: items.where((e) => e.address != null).take(10).map((r) {
@@ -824,25 +821,25 @@ class _GeneratorMapTabState extends State<_GeneratorMapTab> {
                           .join(' • ')
                           .trim()
                           .isEmpty
-                      ? 'Adresse'
+                      ? context.l10n.generatorAddressFallback
                       : [hood, city]
                           .where((s) => s.trim().isNotEmpty)
                           .join(' • ')),
                   subtitle: Text(
-                      'Statut: ${r.status} • ${r.quantityEstimateKg.toStringAsFixed(0)} kg',
+                      context.l10n.generatorStatusWeightLine(r.status, r.quantityEstimateKg.toStringAsFixed(0)),
                       style: context.textStyles.bodySmall?.copyWith(
                           color: LightModeColors.lightOnSurfaceVariant)),
                   trailing: IconButton(
-                    tooltip: 'Itinéraire',
+                    tooltip: context.l10n.collectorRouteChipLabel,
                     onPressed: () async {
                       final addr = r.address;
                       if (addr == null) return;
                       final latRaw = addr['latitude'];
                       final lngRaw = addr['longitude'];
                       if (latRaw is! num || lngRaw is! num) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                             content: Text(
-                                'Coordonnées manquantes pour cette adresse.')));
+                                context.l10n.generatorMissingCoordinatesForAddress)));
                         return;
                       }
                       setState(() {
@@ -947,7 +944,7 @@ class _RequestListTile extends StatelessWidget {
     final color = _statusColor(request.status);
     final addr = request.address;
     final title = addr == null
-        ? 'Demande #${request.id.substring(0, 6)}'
+        ? context.l10n.generatorRequestIdFallback(request.id.substring(0, 6))
         : [addr['neighborhood'], addr['city']]
             .whereType<String>()
             .where((s) => s.trim().isNotEmpty)
@@ -979,7 +976,7 @@ class _RequestListTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title.isEmpty ? 'Demande' : title,
+                  Text(title.isEmpty ? context.l10n.generatorRequestFallback : title,
                       style: context.textStyles.titleSmall
                           ?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 2),
@@ -1060,8 +1057,10 @@ class CreateRequestScreen extends StatefulWidget {
 }
 
 class _CreateRequestScreenState extends State<CreateRequestScreen> {
+  static const LatLng _createRequestDoualaFallback = LatLng(4.0511, 9.7679);
+
   double _weight = 15;
-  String _selectedType = 'Plastique';
+  String _selectedType = 'plastic';
 
   DateTime? _scheduledDate;
   String? _timeSlot;
@@ -1096,7 +1095,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
     } catch (e) {
       debugPrint('Pick photos failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, 'Impossible de choisir les photos.');
+      AppSnackbars.error(context, context.l10n.generatorCannotPickPhotos);
     }
   }
 
@@ -1111,7 +1110,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
     } catch (e) {
       debugPrint('Take photo failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, 'Impossible de prendre la photo.');
+      AppSnackbars.error(context, context.l10n.generatorCannotTakePhoto);
     }
   }
 
@@ -1120,7 +1119,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
     if (_latitude == null || _longitude == null) {
       AppSnackbars.warning(
         context,
-        'La position GPS est obligatoire pour publier. Appuyez sur "Moi" pour capturer votre position.',
+        context.l10n.generatorGpsRequiredNotice,
       );
       return;
     }
@@ -1130,7 +1129,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
           ? null
           : _combineDateAndSlot(_scheduledDate!, _timeSlot);
       final req = await WasteRequestService().create(
-        wasteType: _wasteTypeToDb(_selectedType),
+        wasteType: _selectedType,
         quantityEstimateKg: _weight,
         notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
         scheduledAt: scheduledAt,
@@ -1156,20 +1155,20 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
       }
 
       if (!mounted) return;
-      AppSnackbars.success(context, 'Demande publiée.');
+      AppSnackbars.success(context, context.l10n.generatorRequestPublished);
       context.pop();
     } on StorageException catch (e) {
       debugPrint('Publish request upload failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
     } on MediaUploadException catch (e) {
       debugPrint('Publish request upload blocked: $e');
       if (!mounted) return;
-      AppSnackbars.warning(context, AppErrorHandler.toUserMessage(e));
+      AppSnackbars.warning(context, AppErrorHandler.toUserMessage(context, e));
     } catch (e) {
       debugPrint('Publish request failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
     } finally {
       if (mounted) setState(() => _publishing = false);
     }
@@ -1209,7 +1208,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
           perm == LocationPermission.deniedForever) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Permission localisation refusée.')));
+            SnackBar(content: Text(context.l10n.collectorLocationPermissionDenied)));
         return;
       }
 
@@ -1224,26 +1223,9 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
       debugPrint('Use my location failed: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Localisation impossible: $e')));
+          .showSnackBar(SnackBar(content: Text(AppErrorHandler.toUserMessage(context, e))));
     } finally {
       if (mounted) setState(() => _locating = false);
-    }
-  }
-
-  String _wasteTypeToDb(String label) {
-    switch (label) {
-      case 'Plastique':
-        return 'plastic';
-      case 'Carton':
-        return 'paper';
-      case 'Métaux':
-        return 'metal';
-      case 'Huiles':
-        return 'organic';
-      case 'Ordures ménagères':
-        return 'mixed';
-      default:
-        return 'mixed';
     }
   }
 
@@ -1251,8 +1233,8 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Création d\'une demande',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: Text(context.l10n.generatorCreateRequestTitle,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
           Padding(
@@ -1272,25 +1254,25 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionTitle('1', 'Type de déchet'),
+            _buildSectionTitle('1', context.l10n.generatorSectionWasteType),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
-                _buildWasteType('Plastique', Icons.local_drink),
-                _buildWasteType('Carton', Icons.inventory_2_outlined),
-                _buildWasteType('Métaux', Icons.build_outlined),
-                _buildWasteType('Huiles', Icons.water_drop_outlined),
-                _buildWasteType('Ordures ménagères', Icons.delete_outline),
+                _buildWasteType('plastic', context.l10n.generatorWastePlastic, Icons.local_drink),
+                _buildWasteType('paper', context.l10n.generatorWasteCardboard, Icons.inventory_2_outlined),
+                _buildWasteType('metal', context.l10n.generatorWasteMetal, Icons.build_outlined),
+                _buildWasteType('organic', context.l10n.generatorWasteOil, Icons.water_drop_outlined),
+                _buildWasteType('mixed', context.l10n.generatorWasteHousehold, Icons.delete_outline),
               ],
             ),
             const SizedBox(height: 32),
-            _buildSectionTitle('2', 'Quantité estimée'),
+            _buildSectionTitle('2', context.l10n.generatorSectionQuantity),
             const SizedBox(height: 24),
             Row(
               children: [
-                const Text('Léger'),
+                Text(context.l10n.generatorWeightLight),
                 Expanded(
                   child: Slider(
                     value: _weight,
@@ -1300,7 +1282,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                     onChanged: (v) => setState(() => _weight = v),
                   ),
                 ),
-                const Text('Lourd'),
+                Text(context.l10n.generatorWeightHeavy),
               ],
             ),
             Center(
@@ -1309,7 +1291,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                         color: LightModeColors.lightPrimary,
                         fontWeight: FontWeight.bold))),
             const SizedBox(height: 32),
-            _buildSectionTitle('3', 'Date & créneau'),
+            _buildSectionTitle('3', context.l10n.generatorSectionDateSlot),
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
@@ -1326,7 +1308,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                       Expanded(
                         child: Text(
                           _scheduledDate == null
-                              ? 'Choisir une date'
+                              ? context.l10n.generatorChooseDate
                               : '${_scheduledDate!.day.toString().padLeft(2, '0')}/${_scheduledDate!.month.toString().padLeft(2, '0')}/${_scheduledDate!.year}',
                           style: context.textStyles.titleSmall
                               ?.copyWith(fontWeight: FontWeight.bold),
@@ -1335,13 +1317,13 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                       TextButton.icon(
                           onPressed: _pickDate,
                           icon: const Icon(Icons.date_range),
-                          label: const Text('Date')),
+                          label: Text(context.l10n.generatorDateButton)),
                     ]),
                     const SizedBox(height: 10),
                     DropdownButtonFormField<String>(
                       value: _timeSlot,
-                      decoration: const InputDecoration(
-                          labelText: 'Créneau (optionnel)'),
+                      decoration: InputDecoration(
+                          labelText: context.l10n.generatorTimeSlotLabel),
                       items: const [
                         DropdownMenuItem(
                             value: '08:00-10:00', child: Text('08:00 – 10:00')),
@@ -1359,7 +1341,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                   ]),
             ),
             const SizedBox(height: 24),
-            _buildSectionTitle('4', 'Localisation (GPS)'),
+            _buildSectionTitle('4', context.l10n.generatorSectionLocation),
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
@@ -1377,8 +1359,8 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                 Expanded(
                   child: Text(
                     _latitude == null || _longitude == null
-                        ? 'Aucune coordonnée enregistrée (obligatoire)'
-                        : 'GPS: ${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}',
+                        ? context.l10n.generatorNoCoordinatesRecorded
+                        : context.l10n.generatorGpsCoordinates(_latitude!.toStringAsFixed(5), _longitude!.toStringAsFixed(5)),
                     style: context.textStyles.bodySmall?.copyWith(
                         color: LightModeColors.lightOnSurfaceVariant),
                   ),
@@ -1390,12 +1372,54 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Moi'),
+                      : Text(context.l10n.collectorMyLocationButton),
                 ),
               ]),
             ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              child: SizedBox(
+                height: 150,
+                child: CleanCityMapView(
+                  center: _latitude != null && _longitude != null
+                      ? LatLng(_latitude!, _longitude!)
+                      : _createRequestDoualaFallback,
+                  zoom: _latitude != null && _longitude != null ? 15 : 12,
+                  markers: _latitude != null && _longitude != null
+                      ? [MapPin(point: LatLng(_latitude!, _longitude!), color: LightModeColors.lightPrimary, radius: 9)]
+                      : const [],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.business),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                          controller: _neighborhoodCtrl,
+                          decoration: InputDecoration(labelText: context.l10n.generatorNeighborhoodLabel)),
+                      const SizedBox(height: 8),
+                      TextField(
+                          controller: _cityCtrl,
+                          decoration: InputDecoration(labelText: context.l10n.authCityLabel)),
+                      const SizedBox(height: 8),
+                      TextField(
+                          controller: _detailsCtrl,
+                          decoration: InputDecoration(
+                              labelText: context.l10n.generatorDetailsLabel)),
+                    ],
+                  ),
+                )
+              ],
+            ),
             const SizedBox(height: 32),
-            _buildSectionTitle('5', 'Photo des déchets'),
+            _buildSectionTitle('5', context.l10n.generatorSectionPhotos),
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
@@ -1413,7 +1437,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                   Row(
                     children: [
                       Expanded(
-                          child: Text('Ajoutez des photos (optionnel)',
+                          child: Text(context.l10n.generatorAddPhotosLabel,
                               style: context.textStyles.labelLarge?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: LightModeColors.lightPrimary))),
@@ -1430,7 +1454,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                   const SizedBox(height: 8),
                   if (_photos.isEmpty)
                     Text(
-                        'Galerie ou caméra. Les photos seront uploadées après publication. Si le chargement automatique échoue, vous pouvez continuer avec l adresse textuelle.',
+                        context.l10n.generatorPhotosHint,
                         style: context.textStyles.bodySmall?.copyWith(
                             color: LightModeColors.lightOnSurfaceVariant))
                   else
@@ -1465,97 +1489,13 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
               ),
             ),
             const SizedBox(height: 32),
-            _buildSectionTitle('3b', 'Notes'),
+            _buildSectionTitle('6', context.l10n.generatorSectionNotes),
             const SizedBox(height: 12),
             TextField(
               controller: _notesCtrl,
               maxLines: 3,
-              decoration: const InputDecoration(
-                  hintText: 'Ex: accès facile, appeler avant d\'arriver...'),
-            ),
-            const SizedBox(height: 32),
-            _buildSectionTitle('4', 'Localisation'),
-            const SizedBox(height: 12),
-            Container(
-              height: 150,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: LightModeColors.lightSurfaceVariant,
-                borderRadius: BorderRadius.circular(AppRadius.md),
-              ),
-              child: Stack(
-                children: [
-                  // Placeholder for map
-                  Center(
-                      child: Icon(Icons.map,
-                          size: 48, color: Colors.grey.shade400)),
-                  Center(
-                      child: Icon(Icons.location_on,
-                          size: 32, color: LightModeColors.lightPrimary)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.business),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextField(
-                          controller: _neighborhoodCtrl,
-                          decoration:
-                              const InputDecoration(labelText: 'Quartier')),
-                      const SizedBox(height: 8),
-                      TextField(
-                          controller: _cityCtrl,
-                          decoration:
-                              const InputDecoration(labelText: 'Ville')),
-                      const SizedBox(height: 8),
-                      TextField(
-                          controller: _detailsCtrl,
-                          decoration: const InputDecoration(
-                              labelText: 'Détails (rue, repères, etc.)')),
-                    ],
-                  ),
-                )
-              ],
-            ),
-            const SizedBox(height: 32),
-            _buildSectionTitle('5', 'Date et créneau'),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    padding: AppSpacing.paddingMd,
-                    decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8)),
-                    child: const Row(children: [
-                      Icon(Icons.calendar_today, size: 16),
-                      SizedBox(width: 8),
-                      Text('12 Oct. 2023')
-                    ]),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Container(
-                    padding: AppSpacing.paddingMd,
-                    decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8)),
-                    child: const Row(children: [
-                      Icon(Icons.access_time, size: 16),
-                      SizedBox(width: 8),
-                      Text('08:00 - 10:00')
-                    ]),
-                  ),
-                ),
-              ],
+              decoration: InputDecoration(
+                  hintText: context.l10n.generatorNotesHint),
             ),
             const SizedBox(height: 48),
             SizedBox(
@@ -1564,7 +1504,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                 onPressed: _publishing ? null : _publish,
                 child:
                     Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(_publishing ? 'Publication...' : 'Publier la demande'),
+                  Text(_publishing ? context.l10n.generatorPublishing : context.l10n.generatorPublishButton),
                   const SizedBox(width: 8),
                   Icon(_publishing ? Icons.hourglass_top : Icons.send)
                 ]),
@@ -1572,7 +1512,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'En publiant cette demande, vous acceptez nos conditions d\'utilisation concernant la gestion des déchets.',
+              context.l10n.generatorTermsNotice,
               style:
                   context.textStyles.labelSmall?.copyWith(color: Colors.grey),
               textAlign: TextAlign.center,
@@ -1602,8 +1542,8 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
     );
   }
 
-  Widget _buildWasteType(String title, IconData icon) {
-    final isSelected = _selectedType == title;
+  Widget _buildWasteType(String code, String label, IconData icon) {
+    final isSelected = _selectedType == code;
     return ChoiceChip(
       label: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1612,11 +1552,11 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
               size: 16,
               color: isSelected ? LightModeColors.lightPrimary : Colors.grey),
           const SizedBox(width: 8),
-          Text(title),
+          Text(label),
         ],
       ),
       selected: isSelected,
-      onSelected: (v) => setState(() => _selectedType = title),
+      onSelected: (v) => setState(() => _selectedType = code),
       selectedColor: LightModeColors.lightPrimaryContainer,
       backgroundColor: LightModeColors.lightSurface,
       shape: RoundedRectangleBorder(
@@ -1772,19 +1712,19 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
       await WasteRequestService().addPhotoUrl(requestId: id, url: url);
       await _refreshPhotos();
       if (!mounted) return;
-      AppSnackbars.success(context, 'Photo ajoutée.');
+      AppSnackbars.success(context, context.l10n.generatorPhotoAdded);
     } on StorageException catch (e) {
       debugPrint('Add photo storage failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
     } on MediaUploadException catch (e) {
       debugPrint('Add photo upload blocked: $e');
       if (!mounted) return;
-      AppSnackbars.warning(context, AppErrorHandler.toUserMessage(e));
+      AppSnackbars.warning(context, AppErrorHandler.toUserMessage(context, e));
     } catch (e) {
       debugPrint('Add photo failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
     } finally {
       if (mounted) setState(() => _addingPhoto = false);
     }
@@ -1796,12 +1736,12 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Détails de la demande',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: Text(context.l10n.generatorRequestDetailsTitle,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
           IconButton(
-            tooltip: 'Chat',
+            tooltip: context.l10n.chatTitle,
             onPressed: effectiveId == null
                 ? null
                 : () async {
@@ -1817,13 +1757,13 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
                       debugPrint('Open chat failed: $e');
                       if (!context.mounted) return;
                       AppSnackbars.error(
-                          context, AppErrorHandler.toUserMessage(e));
+                          context, AppErrorHandler.toUserMessage(context, e));
                     }
                   },
             icon: const Icon(Icons.forum_outlined),
           ),
           IconButton(
-            tooltip: 'Ajouter une photo',
+            tooltip: context.l10n.generatorAddPhotoTooltip,
             onPressed: _addingPhoto ? null : _addPhoto,
             icon: _addingPhoto
                 ? const SizedBox(
@@ -1918,7 +1858,7 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
                             final id = effectiveId;
                             if (id == null || id.trim().isEmpty) {
                               AppSnackbars.warning(context,
-                                  'Demande introuvable pour ouvrir le chat.');
+                                  context.l10n.generatorRequestNotFoundForChat);
                               return;
                             }
                             final threadId = await ChatService()
@@ -1931,19 +1871,19 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
                                 'Open request chat (generator→collector) failed: $e');
                             if (!context.mounted) return;
                             AppSnackbars.error(
-                                context, 'Impossible d’ouvrir le chat.');
+                                context, context.l10n.errorCannotOpenChat);
                           }
                         },
                         icon: const Icon(Icons.chat_bubble_outline),
                         label: Text(collectorName.isEmpty
-                            ? 'Contacter le collecteur'
-                            : 'Contacter $collectorName'),
+                            ? context.l10n.centerContactCollectorGeneric
+                            : context.l10n.centerContactNamed(collectorName)),
                       ),
                     );
                   },
                 ),
                 const SizedBox(height: 18),
-                Text('Photos',
+                Text(context.l10n.generatorPhotosTitle,
                     style: context.textStyles.titleMedium
                         ?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 10),
@@ -1972,7 +1912,7 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
                             const SizedBox(width: 12),
                             Expanded(
                                 child: Text(
-                                    'Aucune photo. Appuyez sur l’icône caméra pour en ajouter.',
+                                    context.l10n.generatorNoPhotosHint,
                                     style: context.textStyles.bodySmall
                                         ?.copyWith(
                                             color: LightModeColors
@@ -2006,8 +1946,8 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('RÉFÉRENCE',
-                            style: TextStyle(
+                        Text(context.l10n.generatorReferenceCaps,
+                            style: const TextStyle(
                                 fontSize: 10,
                                 color: Colors.grey,
                                 fontWeight: FontWeight.bold)),
@@ -2037,26 +1977,26 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
                 if (snap.hasError)
                   Padding(
                     padding: const EdgeInsets.only(top: 12.0),
-                    child: Text('Erreur de chargement: ${snap.error}',
+                    child: Text(AppErrorHandler.toUserMessage(context, snap.error ?? Exception('unknown')),
                         style: const TextStyle(color: Colors.red)),
                   ),
 
                 // Timeline mockup
                 _buildTimelineItem(
-                    'EN ATTENTE', 'Demande reçue le 24 Oct, 08:30',
+                    context.l10n.generatorTimelineReceivedTitle, context.l10n.generatorTimelineReceivedSubtitle,
                     isPast: true),
                 _buildTimelineItem(
-                    'ACCEPTÉE', 'Collecteur en cours de recherche',
+                    context.l10n.generatorTimelineAcceptedTitle, context.l10n.generatorTimelineAcceptedSubtitle,
                     isActive: true),
                 _buildTimelineItem(
-                    'EN LIVRAISON', 'Trajet vers le centre de tri'),
-                _buildTimelineItem('CONFIRMÉE', 'Collecte terminée',
+                    context.l10n.generatorTimelineInDeliveryTitle, context.l10n.generatorTimelineInDeliverySubtitle),
+                _buildTimelineItem(context.l10n.generatorTimelineDoneTitle, context.l10n.generatorTimelineDoneSubtitle,
                     isLast: true),
 
                 const SizedBox(height: 32),
-                const Text('Collecteur assigné',
+                Text(context.l10n.generatorAssignedCollectorTitle,
                     style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 16),
                 Container(
                   padding: AppSpacing.paddingMd,
@@ -2103,9 +2043,9 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
                 ),
 
                 const SizedBox(height: 32),
-                const Text('Localisation du collecteur',
+                Text(context.l10n.generatorCollectorLocationTitle,
                     style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 16),
                 Container(
                   height: 150,
@@ -2131,14 +2071,14 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
                               boxShadow: [
                                 BoxShadow(color: Colors.black12, blurRadius: 4)
                               ]),
-                          child: const Row(
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Arrivée prévue : ~12 mins',
-                                  style: TextStyle(
+                              Text(context.l10n.generatorEtaFixed,
+                                  style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12)),
-                              Text('2.4 km',
+                              const Text('2.4 km',
                                   style: TextStyle(
                                       color: Colors.grey, fontSize: 12)),
                             ],
@@ -2150,9 +2090,9 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
                 ),
 
                 const SizedBox(height: 32),
-                const Text('Récapitulatif des déchets',
+                Text(context.l10n.generatorWasteSummaryTitle,
                     style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 16),
                 Container(
                   padding: AppSpacing.paddingMd,
@@ -2162,16 +2102,16 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
                   child: Column(
                     children: [
                       _buildSummaryRow(Icons.local_drink, Colors.orange,
-                          'Plastiques & PET', '3 sacs volumineux', '~15 kg'),
+                          context.l10n.generatorSummaryPlasticPetTitle, context.l10n.generatorSummaryPlasticPetDesc, '~15 kg'),
                       const Divider(height: 24),
                       _buildSummaryRow(Icons.description, Colors.blue,
-                          'Papiers & Cartons', '1 boite moyenne', '~5 kg'),
+                          context.l10n.generatorSummaryPaperCardboardTitle, context.l10n.generatorSummaryPaperCardboardDesc, '~5 kg'),
                       const Divider(height: 24),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Total estimé',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text(context.l10n.generatorTotalEstimated,
+                              style: const TextStyle(fontWeight: FontWeight.bold)),
                           Text('2.500 CFA',
                               style: TextStyle(
                                   fontWeight: FontWeight.bold,
@@ -2193,20 +2133,20 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
                             try {
                               await WasteRequestService().cancel(effectiveId);
                               if (!context.mounted) return;
-                              AppSnackbars.success(context, 'Demande annulée.');
+                              AppSnackbars.success(context, context.l10n.generatorRequestCancelled);
                               context.pop();
                             } catch (e) {
                               debugPrint('Cancel request failed: $e');
                               if (!context.mounted) return;
                               AppSnackbars.error(
-                                  context, 'Annulation échouée.');
+                                  context, context.l10n.generatorCancellationFailed);
                             }
                           },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.red,
                       side: const BorderSide(color: Colors.red),
                     ),
-                    child: const Text('Annuler la demande'),
+                    child: Text(context.l10n.generatorCancelRequestButton),
                   ),
                 ),
                 const SizedBox(height: 32),

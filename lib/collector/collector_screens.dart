@@ -55,7 +55,7 @@ class _CollectorDashboardState extends State<CollectorDashboard> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         leading: IconButton(
-          tooltip: 'Retour',
+          tooltip: context.l10n.commonBack,
           icon: Icon(Icons.arrow_back,
               color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => _handleBack(context),
@@ -69,14 +69,14 @@ class _CollectorDashboardState extends State<CollectorDashboard> {
               builder: (context, snap) {
                 final name = (snap.data?.fullName?.trim().isNotEmpty ?? false)
                     ? snap.data!.fullName!.trim()
-                    : 'Collecteur';
+                    : context.l10n.collectorDefaultName;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(name,
                         style: context.textStyles.titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold)),
-                    Text('CAMEROUN • COLLECTEUR',
+                    Text(context.l10n.collectorBrandSubtitle,
                         style: context.textStyles.labelSmall?.copyWith(
                             color: LightModeColors.lightOnSurfaceVariant,
                             fontSize: 8)),
@@ -104,20 +104,20 @@ class _CollectorDashboardState extends State<CollectorDashboard> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _index,
         onTap: (i) => setState(() => _index = i),
-        items: const [
+        items: [
           BottomNavigationBarItem(
-              icon: Icon(Icons.cases_outlined), label: 'Missions'),
+              icon: const Icon(Icons.cases_outlined), label: context.l10n.collectorNavMissions),
           BottomNavigationBarItem(
-              icon: Icon(Icons.map_outlined), label: 'Carte'),
+              icon: const Icon(Icons.map_outlined), label: context.l10n.collectorNavMap),
           BottomNavigationBarItem(
-              icon: Icon(Icons.history), label: 'Historique'),
+              icon: const Icon(Icons.history), label: context.l10n.collectorNavHistory),
           BottomNavigationBarItem(
-              icon: Icon(Icons.account_balance_wallet_outlined),
-              label: 'Portefeuille'),
+              icon: const Icon(Icons.account_balance_wallet_outlined),
+              label: context.l10n.collectorNavWallet),
           BottomNavigationBarItem(
-              icon: Icon(Icons.forum_outlined), label: 'Chat'),
+              icon: const Icon(Icons.forum_outlined), label: context.l10n.chatTitle),
           BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline), label: 'Profil'),
+              icon: const Icon(Icons.person_outline), label: context.l10n.profileTitle),
         ],
       ),
     );
@@ -195,9 +195,9 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
       final enabled = await Geolocator.isLocationServiceEnabled();
       if (!enabled) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content:
-                Text('Activez la localisation (GPS) pour utiliser la carte.')));
+                Text(context.l10n.collectorEnableLocation)));
         return;
       }
 
@@ -207,8 +207,8 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
       if (perm == LocationPermission.denied ||
           perm == LocationPermission.deniedForever) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Autorisation localisation refusée.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(context.l10n.collectorLocationPermissionDenied)));
         return;
       }
 
@@ -222,7 +222,7 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
     } catch (e) {
       debugPrint('Collector map locate failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
     } finally {
       if (mounted) setState(() => _locating = false);
     }
@@ -250,7 +250,7 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
     if (!mounted) return;
     if (latLng == null) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Adresse introuvable.')));
+          .showSnackBar(SnackBar(content: Text(context.l10n.collectorAddressNotFound)));
       return;
     }
     setState(() {
@@ -287,9 +287,8 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
     if (_routing) return;
     if (!_maps.isRoutingConfigured) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text(
-              'Token Mapbox manquant: impossible de calculer l’itinéraire.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(context.l10n.collectorRoutingNotConfiguredNote)));
       return;
     }
     setState(() => _routing = true);
@@ -298,7 +297,7 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
       if (!mounted) return;
       if (dir == null || dir.polylinePoints.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Itinéraire indisponible.')));
+            SnackBar(content: Text(context.l10n.collectorRouteUnavailable)));
         return;
       }
       setState(() {
@@ -311,7 +310,7 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
     } catch (e) {
       debugPrint('Collector route build failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, AppErrorHandler.toUserMessage(e));
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
     } finally {
       if (mounted) setState(() => _routing = false);
     }
@@ -336,7 +335,7 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Carte',
+            Text(context.l10n.collectorNavMap,
                 style: context.textStyles.titleLarge
                     ?.copyWith(fontWeight: FontWeight.bold)),
             IconButton(
@@ -362,13 +361,13 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
                       controller: _searchCtrl,
                       onChanged: _updateSuggestions,
                       decoration: InputDecoration(
-                        hintText: 'Destination (adresse ou mission)...',
+                        hintText: context.l10n.collectorDestinationHint,
                         prefixIcon: Icon(Icons.search,
                             color: LightModeColors.lightPrimary),
                         suffixIcon: _searchCtrl.text.trim().isEmpty
                             ? null
                             : IconButton(
-                                tooltip: 'Effacer',
+                                tooltip: context.l10n.commonClear,
                                 onPressed: () => setState(() {
                                   _searchCtrl.clear();
                                   _suggestions = const [];
@@ -392,7 +391,7 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.my_location),
-                    label: const Text('Moi'),
+                    label: Text(context.l10n.collectorMyLocationButton),
                   ),
                 ],
               ),
@@ -400,7 +399,7 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
                 Padding(
                   padding: const EdgeInsets.only(top: 10),
                   child: Text(
-                    'Itinéraire: définis OPEN_ROUTE_SERVICE_API_KEY. La carte OSM + recherche restent disponibles.',
+                    context.l10n.collectorRoutingNotConfiguredNote,
                     style: context.textStyles.bodySmall?.copyWith(
                         color: LightModeColors.lightOnSurfaceVariant),
                   ),
@@ -440,7 +439,7 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
                         Chip(
                             avatar: Icon(Icons.person_pin_circle,
                                 color: LightModeColors.lightPrimary),
-                            label: const Text('Ma position')),
+                            label: Text(context.l10n.collectorMyPositionChip)),
                       if (_destinationLabel != null)
                         Chip(
                             avatar: Icon(Icons.flag_outlined,
@@ -457,7 +456,7 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
                                       CircularProgressIndicator(strokeWidth: 2))
                               : Icon(Icons.alt_route,
                                   color: LightModeColors.lightPrimary),
-                          label: Text(_routing ? 'Calcul...' : 'Itinéraire'),
+                          label: Text(_routing ? context.l10n.collectorCalculating : context.l10n.collectorRouteChipLabel),
                           onPressed: _routing ? null : _buildRoute,
                         ),
                     ],
@@ -531,7 +530,7 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
           route: _route,
         ),
         const SizedBox(height: 12),
-        Text('Missions en cours',
+        Text(context.l10n.collectorActiveMissionsTitle,
             style: context.textStyles.titleMedium
                 ?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
@@ -541,15 +540,14 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
             if (snap.connectionState == ConnectionState.waiting)
               return const LinearProgressIndicator();
             if (snap.hasError)
-              return Text('Erreur: ${snap.error}',
+              return Text(AppErrorHandler.toUserMessage(context, snap.error ?? Exception('unknown')),
                   style: const TextStyle(color: Colors.red));
             final rows = snap.data ?? const <Map<String, dynamic>>[];
             if (rows.isEmpty) {
               return _CollectorEmpty(
                   icon: Icons.alt_route,
-                  title: 'Aucune mission active',
-                  subtitle:
-                      'Acceptez une mission pour afficher son itinéraire ici.');
+                  title: context.l10n.collectorNoActiveMissionsTitle,
+                  subtitle: context.l10n.collectorNoActiveMissionsSubtitle);
             }
 
             return Column(
@@ -587,14 +585,14 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(label.isEmpty ? 'Adresse de mission' : label,
+                              Text(label.isEmpty ? context.l10n.collectorMissionAddressFallback : label,
                                   style: context.textStyles.titleSmall
                                       ?.copyWith(fontWeight: FontWeight.bold)),
                               const SizedBox(height: 2),
                               Text(
                                   reqId == null
                                       ? ''
-                                      : 'Demande #${reqId.substring(0, 6)}',
+                                      : context.l10n.collectorRequestIdLabel(reqId.substring(0, 6)),
                                   style: context.textStyles.bodySmall?.copyWith(
                                       color: LightModeColors
                                           .lightOnSurfaceVariant)),
@@ -603,12 +601,12 @@ class _CollectorMapTabState extends State<_CollectorMapTab> {
                         ),
                         IconButton(
                           tooltip: hasCoord
-                              ? 'Itinéraire'
-                              : 'Coordonnées manquantes',
+                              ? context.l10n.collectorRouteChipLabel
+                              : context.l10n.collectorMissingCoordinates,
                           onPressed: !hasCoord
                               ? null
                               : () => _selectPickupDestination(
-                                  label: label.isEmpty ? 'Mission' : label,
+                                  label: label.isEmpty ? context.l10n.collectorMissionTitle : label,
                                   lat: latRaw,
                                   lng: lngRaw),
                           icon: Icon(Icons.alt_route,
@@ -690,7 +688,7 @@ class _CollectorMissionsTabState extends State<_CollectorMissionsTab> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Missions',
+              Text(context.l10n.collectorNavMissions,
                   style: context.textStyles.titleLarge
                       ?.copyWith(fontWeight: FontWeight.bold)),
               IconButton(
@@ -706,15 +704,15 @@ class _CollectorMissionsTabState extends State<_CollectorMissionsTab> {
               if (snap.connectionState == ConnectionState.waiting)
                 return const LinearProgressIndicator();
               if (snap.hasError)
-                return Text('Erreur: ${snap.error}',
+                return Text(AppErrorHandler.toUserMessage(context, snap.error ?? Exception('unknown')),
                     style: const TextStyle(color: Colors.red));
               final items = (snap.data as List?)?.cast<WasteRequest>() ??
                   const <WasteRequest>[];
               if (items.isEmpty) {
                 return _CollectorEmpty(
                     icon: Icons.inbox_outlined,
-                    title: 'Aucune mission disponible',
-                    subtitle: 'Revenez plus tard ou changez de zone.');
+                    title: context.l10n.collectorNoMissionsAvailableTitle,
+                    subtitle: context.l10n.collectorNoMissionsAvailableSubtitle);
               }
               return Column(
                 children: items.map((e) {
@@ -743,7 +741,7 @@ class _CollectorMissionsTabState extends State<_CollectorMissionsTab> {
                     child: _MissionCard(
                       type: type,
                       location: location,
-                      title: sched.isEmpty ? 'Collecte' : 'Collecte • $sched',
+                      title: sched.isEmpty ? context.l10n.collectorPickupLabel : context.l10n.collectorPickupLabelWithSchedule(sched),
                       weight: weight,
                       price: '— XAF',
                       onTap: () =>
@@ -812,20 +810,20 @@ class _CollectorHistoryTabState extends State<_CollectorHistoryTab> {
     }
   }
 
-  String _statusLabel(String status) {
+  String _statusLabel(BuildContext context, String status) {
     switch (status) {
       case 'pending':
-        return 'En attente';
+        return context.l10n.statusPending;
       case 'accepted':
-        return 'Acceptée';
+        return context.l10n.statusAccepted;
       case 'en_route':
-        return 'En route';
+        return context.l10n.statusEnRoute;
       case 'collected':
-        return 'Collectée';
+        return context.l10n.statusCollected;
       case 'delivered':
-        return 'Livrée';
+        return context.l10n.statusDelivered;
       case 'cancelled':
-        return 'Annulée';
+        return context.l10n.statusCancelled;
       default:
         return status;
     }
@@ -841,7 +839,7 @@ class _CollectorHistoryTabState extends State<_CollectorHistoryTab> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Historique',
+              Text(context.l10n.collectorNavHistory,
                   style: context.textStyles.titleLarge
                       ?.copyWith(fontWeight: FontWeight.bold)),
               IconButton(
@@ -857,15 +855,14 @@ class _CollectorHistoryTabState extends State<_CollectorHistoryTab> {
               if (snap.connectionState == ConnectionState.waiting)
                 return const LinearProgressIndicator();
               if (snap.hasError)
-                return Text('Erreur: ${snap.error}',
+                return Text(AppErrorHandler.toUserMessage(context, snap.error ?? Exception('unknown')),
                     style: const TextStyle(color: Colors.red));
               final rows = snap.data ?? const <Map<String, dynamic>>[];
               if (rows.isEmpty) {
                 return _CollectorEmpty(
                     icon: Icons.history,
-                    title: 'Aucune mission',
-                    subtitle:
-                        'Vos missions acceptées et terminées apparaîtront ici.');
+                    title: context.l10n.collectorNoHistoryTitle,
+                    subtitle: context.l10n.collectorNoHistorySubtitle);
               }
 
               return Column(
@@ -890,9 +887,9 @@ class _CollectorHistoryTabState extends State<_CollectorHistoryTab> {
                       (req?['quantity_estimate_kg'] ?? '').toString();
 
                   final timeline = [
-                    if (acceptedAt.isNotEmpty) 'Acceptée: $acceptedAt',
-                    if (collectedAt.isNotEmpty) 'Ramassée: $collectedAt',
-                    if (deliveredAt.isNotEmpty) 'Livrée: $deliveredAt',
+                    if (acceptedAt.isNotEmpty) context.l10n.collectorTimelineAccepted(acceptedAt),
+                    if (collectedAt.isNotEmpty) context.l10n.collectorTimelineCollected(collectedAt),
+                    if (deliveredAt.isNotEmpty) context.l10n.collectorTimelineDelivered(deliveredAt),
                   ].join('  •  ');
 
                   return Padding(
@@ -900,7 +897,7 @@ class _CollectorHistoryTabState extends State<_CollectorHistoryTab> {
                     child: _MissionCard(
                       type: type,
                       location: location.isEmpty ? '—' : location,
-                      title: 'Statut: ${_statusLabel(status)}',
+                      title: context.l10n.collectorStatusLabelPrefix(_statusLabel(context, status)),
                       weight: weightKg.trim().isEmpty
                           ? '—'
                           : '${double.tryParse(weightKg)?.toStringAsFixed(0) ?? weightKg} kg',
@@ -1007,7 +1004,7 @@ class _CollectorWalletBodyState extends State<_CollectorWalletBody> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Portefeuille',
+              Text(context.l10n.collectorNavWallet,
                   style: context.textStyles.titleLarge
                       ?.copyWith(fontWeight: FontWeight.bold)),
               IconButton(
@@ -1023,7 +1020,7 @@ class _CollectorWalletBodyState extends State<_CollectorWalletBody> {
               if (snap.connectionState == ConnectionState.waiting)
                 return const LinearProgressIndicator();
               if (snap.hasError)
-                return Text('Erreur: ${snap.error}',
+                return Text(AppErrorHandler.toUserMessage(context, snap.error ?? Exception('unknown')),
                     style: const TextStyle(color: Colors.red));
               final data = snap.data ??
                   const _WalletData(transactions: [], payoutRequests: []);
@@ -1041,7 +1038,7 @@ class _CollectorWalletBodyState extends State<_CollectorWalletBody> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Solde (XAF)',
+                        Text(context.l10n.collectorBalanceLabel,
                             style: context.textStyles.labelMedium?.copyWith(
                                 color: LightModeColors.lightOnPrimary
                                     .withValues(alpha: 0.85))),
@@ -1051,7 +1048,7 @@ class _CollectorWalletBodyState extends State<_CollectorWalletBody> {
                                 color: LightModeColors.lightOnPrimary,
                                 fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        Text('Crédits après validation centre',
+                        Text(context.l10n.collectorCreditsAfterValidation,
                             style: context.textStyles.bodySmall?.copyWith(
                                 color: LightModeColors.lightOnPrimary
                                     .withValues(alpha: 0.8))),
@@ -1077,7 +1074,7 @@ class _CollectorWalletBodyState extends State<_CollectorWalletBody> {
                       },
                       icon: const Icon(Icons.account_balance_wallet_rounded,
                           color: LightModeColors.lightOnPrimary),
-                      label: Text('Retirer via Mobile Money',
+                      label: Text(context.l10n.collectorWithdrawViaMobileMoney,
                           style: context.textStyles.titleSmall?.copyWith(
                               color: LightModeColors.lightOnPrimary,
                               fontWeight: FontWeight.bold)),
@@ -1089,9 +1086,8 @@ class _CollectorWalletBodyState extends State<_CollectorWalletBody> {
                   if (rows.isEmpty)
                     _CollectorEmpty(
                         icon: Icons.receipt_long,
-                        title: 'Aucune transaction',
-                        subtitle:
-                            'Les paiements virtuels apparaîtront après validation centre.'),
+                        title: context.l10n.collectorNoTransactionsTitle,
+                        subtitle: context.l10n.collectorNoTransactionsSubtitle),
                   if (rows.isNotEmpty)
                     ...rows.map((r) {
                       final pts = r['points']?.toString() ?? '0';
@@ -1175,14 +1171,14 @@ class _PayoutRequestsPanel extends StatelessWidget {
     }
   }
 
-  String _statusLabel(String status) {
+  String _statusLabel(BuildContext context, String status) {
     switch (status) {
       case 'paid':
-        return 'Payé';
+        return context.l10n.payoutStatusPaid;
       case 'rejected':
-        return 'Rejeté';
+        return context.l10n.payoutStatusRejected;
       default:
-        return 'En attente';
+        return context.l10n.payoutStatusPending;
     }
   }
 
@@ -1204,7 +1200,7 @@ class _PayoutRequestsPanel extends StatelessWidget {
                     color: LightModeColors.lightPrimary)),
             const SizedBox(width: 12),
             Expanded(
-                child: Text('Aucune demande de retrait.',
+                child: Text(context.l10n.collectorNoPayoutRequests,
                     style: context.textStyles.bodySmall?.copyWith(
                         color: LightModeColors.lightOnSurfaceVariant))),
           ],
@@ -1222,7 +1218,7 @@ class _PayoutRequestsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Retraits Mobile Money',
+          Text(context.l10n.collectorMobileMoneyWithdrawals,
               style: context.textStyles.titleSmall
                   ?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
@@ -1250,7 +1246,7 @@ class _PayoutRequestsPanel extends StatelessWidget {
                                 ?.copyWith(fontWeight: FontWeight.w600),
                             overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 2),
-                        Text('Montant: $amount XAF',
+                        Text(context.l10n.collectorAmountXaf(amount),
                             style: context.textStyles.bodySmall?.copyWith(
                                 color: LightModeColors.lightOnSurfaceVariant)),
                       ],
@@ -1264,7 +1260,7 @@ class _PayoutRequestsPanel extends StatelessWidget {
                         borderRadius: BorderRadius.circular(999),
                         border:
                             Border.all(color: color.withValues(alpha: 0.35))),
-                    child: Text(_statusLabel(status),
+                    child: Text(_statusLabel(context, status),
                         style: context.textStyles.labelSmall?.copyWith(
                             color: color, fontWeight: FontWeight.bold)),
                   ),
@@ -1439,23 +1435,10 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
   late Future<WasteRequest?> _future;
   bool _busy = false;
 
-  String _friendlyError(Object e) {
-    // Supabase RLS violation typically surfaces as PostgrestException with code 42501.
-    if (e is StateError && e.message == 'MISSION_ALREADY_ACCEPTED') {
-      return 'MISSION DÉJÀ ACCEPTÉE.';
-    }
-    try {
-      final dynamic de = e;
-      final String? code = de.code as String?;
-      if (code == '42501') {
-        return "ACCÈS REFUSÉ — ACTION BLOQUÉE PAR LA SÉCURITÉ (RLS).";
-      }
-      if (code == '23505') {
-        return 'MISSION DÉJÀ ACCEPTÉE.';
-      }
-    } catch (_) {}
-    return AppErrorHandler.toUserMessage(e);
-  }
+  // RLS denials (Postgrest 42501), duplicate accepts (23505), and the
+  // MISSION_ALREADY_ACCEPTED StateError are all mapped to friendly,
+  // localized text by AppErrorHandler.toUserMessage.
+  String _friendlyError(Object e) => AppErrorHandler.toUserMessage(context, e);
 
   @override
   void initState() {
@@ -1491,7 +1474,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  successMessage ?? 'Mise à jour effectuée.',
+                  successMessage ?? context.l10n.collectorUpdateDone,
                   style: TextStyle(
                       color: scheme.onPrimary, fontWeight: FontWeight.w600),
                 ),
@@ -1555,11 +1538,12 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
 
     final center = selected;
     if (center == null) return;
+    if (!mounted) return;
 
     return _run(
       () => WasteRequestService()
           .markDeliveredToCenter(requestId: requestId, centerId: center.id),
-      successMessage: 'Livraison confirmée.',
+      successMessage: context.l10n.collectorDeliveryConfirmedMessage,
     );
   }
 
@@ -1568,12 +1552,12 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
     final requestId = widget.requestId;
     return Scaffold(
       appBar: AppBar(
-        title: Text(requestId == null ? 'Mission' : 'Mission',
+        title: Text(context.l10n.collectorMissionTitle,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
           IconButton(
-            tooltip: 'Chat',
+            tooltip: context.l10n.chatTitle,
             icon: const Icon(Icons.forum_outlined),
             onPressed: requestId == null
                 ? null
@@ -1590,7 +1574,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                       debugPrint('Open chat failed: $e');
                       if (!context.mounted) return;
                       AppSnackbars.error(
-                          context, AppErrorHandler.toUserMessage(e));
+                          context, AppErrorHandler.toUserMessage(context, e));
                     }
                   },
           ),
@@ -1606,7 +1590,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  'Impossible de charger la mission. Verifiez votre connexion puis reessayez.',
+                  context.l10n.collectorMissionLoadFailedRetry,
                   style: context.textStyles.titleSmall,
                   textAlign: TextAlign.center,
                 ),
@@ -1619,7 +1603,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  'Cette mission n est plus disponible. Retournez a la liste des missions et actualisez.',
+                  context.l10n.collectorMissionNoLongerAvailable,
                   style: context.textStyles.titleSmall,
                   textAlign: TextAlign.center,
                 ),
@@ -1658,7 +1642,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                               shape: BoxShape.circle,
                               color: LightModeColors.lightPrimary)),
                       const SizedBox(width: 8),
-                      Text('STATUT: ${r.status.toUpperCase()}',
+                      Text(context.l10n.collectorStatusPrefix(r.status.toUpperCase()),
                           style: context.textStyles.labelSmall?.copyWith(
                               color: LightModeColors.lightPrimary,
                               fontWeight: FontWeight.bold)),
@@ -1684,15 +1668,15 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                             'Open request chat (collector→generator) failed: $e');
                         if (!context.mounted) return;
                         AppSnackbars.error(
-                            context, 'Impossible d’ouvrir le chat.');
+                            context, context.l10n.errorCannotOpenChat);
                       }
                     },
                     icon: const Icon(Icons.chat_bubble_outline),
-                    label: const Text('Contacter le générateur'),
+                    label: Text(context.l10n.centerContactGeneratorGeneric),
                   ),
                 ),
                 const SizedBox(height: 24),
-                Text('Détails de la collecte',
+                Text(context.l10n.collectorPickupDetailsTitle,
                     style: context.textStyles.titleMedium
                         ?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
@@ -1709,7 +1693,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('TYPE DE DÉCHET',
+                              Text(context.l10n.collectorWasteTypeCaps,
                                   style: context.textStyles.labelSmall
                                       ?.copyWith(
                                           color: LightModeColors
@@ -1732,7 +1716,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('POIDS ESTIMÉ',
+                              Text(context.l10n.collectorEstimatedWeightCaps,
                                   style: context.textStyles.labelSmall
                                       ?.copyWith(
                                           color: LightModeColors
@@ -1763,7 +1747,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                           child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                            Text('ADRESSE DE RAMASSAGE',
+                            Text(context.l10n.collectorPickupAddressCaps,
                                 style: context.textStyles.labelSmall?.copyWith(
                                     color:
                                         LightModeColors.lightOnSurfaceVariant)),
@@ -1802,11 +1786,11 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                         : () => _run(
                             () =>
                                 WasteRequestService().acceptMission(requestId),
-                            successMessage: 'Mission acceptée.'),
+                            successMessage: context.l10n.collectorMissionAcceptedMessage),
                     child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(_busy ? 'Traitement...' : 'Accepter la mission'),
+                          Text(_busy ? context.l10n.collectorProcessing : context.l10n.collectorAcceptMissionButton),
                           const SizedBox(width: 8),
                           Icon(_busy
                               ? Icons.hourglass_top
@@ -1823,9 +1807,9 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                         : () => _run(
                             () =>
                                 WasteRequestService().markCollected(requestId),
-                            successMessage: 'Ramassage confirmé.'),
+                            successMessage: context.l10n.collectorPickupConfirmedMessage),
                     icon: const Icon(Icons.shopping_bag_outlined),
-                    label: const Text('Confirmer le ramassage'),
+                    label: Text(context.l10n.collectorConfirmPickupButton),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -1836,7 +1820,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                         ? null
                         : () => _confirmDeliveryWithCenter(requestId),
                     icon: const Icon(Icons.local_shipping_outlined),
-                    label: const Text('Confirmer la livraison'),
+                    label: Text(context.l10n.collectorConfirmDeliveryButton),
                   ),
                 ),
                 const SizedBox(height: 80),

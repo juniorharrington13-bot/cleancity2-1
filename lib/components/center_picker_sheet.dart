@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:cleancity/components/app_error_handler.dart';
 import 'package:cleancity/models/app_user.dart';
 import 'package:cleancity/services/app_user_service.dart';
 import 'package:cleancity/theme.dart';
@@ -43,7 +44,7 @@ class _CenterPickerSheetState extends State<CenterPickerSheet> {
         children: [
           Row(
             children: [
-              Expanded(child: Text('Choisir un centre', style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.bold))),
+              Expanded(child: Text(context.l10n.centerPickerTitle, style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.bold))),
               IconButton(onPressed: () => Navigator.of(context).maybePop(), icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface)),
             ],
           ),
@@ -53,10 +54,10 @@ class _CenterPickerSheetState extends State<CenterPickerSheet> {
             textInputAction: TextInputAction.search,
             onSubmitted: (_) => setState(() => _future = _load()),
             decoration: InputDecoration(
-              hintText: 'Rechercher un centre (nom ou email)...',
+              hintText: context.l10n.centerPickerSearchHint,
               prefixIcon: Icon(Icons.search, color: LightModeColors.lightPrimary),
               suffixIcon: IconButton(
-                tooltip: 'Actualiser',
+                tooltip: context.l10n.centerPickerRefreshTooltip,
                 onPressed: () => setState(() => _future = _load()),
                 icon: Icon(Icons.refresh, color: LightModeColors.lightPrimary),
               ),
@@ -67,14 +68,14 @@ class _CenterPickerSheetState extends State<CenterPickerSheet> {
             future: _future,
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) return const LinearProgressIndicator();
-              if (snap.hasError) return Text('Erreur: ${snap.error}', style: const TextStyle(color: Colors.red));
+              if (snap.hasError) return Text(AppErrorHandler.toUserMessage(context, snap.error ?? Exception('unknown')), style: const TextStyle(color: Colors.red));
               final centers = snap.data ?? const <AppUser>[];
               if (centers.isEmpty) {
                 return Container(
                   width: double.infinity,
                   padding: AppSpacing.paddingLg,
                   decoration: BoxDecoration(color: LightModeColors.lightSurface, borderRadius: BorderRadius.circular(AppRadius.lg), border: Border.all(color: LightModeColors.lightSurfaceVariant)),
-                  child: Text('Aucun centre trouvé. Créez au moins un compte avec rôle "center".', style: context.textStyles.bodyMedium?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
+                  child: Text(context.l10n.centerPickerNoResults, style: context.textStyles.bodyMedium?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),
                 );
               }
               return ConstrainedBox(

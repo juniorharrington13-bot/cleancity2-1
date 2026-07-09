@@ -49,15 +49,12 @@ class MediaUploadService {
         final match = buckets.where((b) => b.name == n).firstOrNull;
         if (match != null) return (name: match.name, isPublic: match.public);
       }
-      throw MediaUploadException(
-        'Bucket introuvable. Créez un bucket Storage nommé "$preferred" (recommandé) dans Supabase → Storage, puis réessayez.',
-      );
+      debugPrint('MediaUploadService._pickBucket: no bucket found among $names for "$preferred"');
+      throw MediaUploadException(MediaUploadErrorCode.bucketMissing);
     } catch (e) {
       if (e is MediaUploadException) rethrow;
       debugPrint('MediaUploadService._pickBucket failed: $e');
-      throw MediaUploadException(
-        'Impossible de vérifier les buckets Storage. Vérifiez votre connexion et vos permissions Supabase Storage.',
-      );
+      throw MediaUploadException(MediaUploadErrorCode.bucketCheckFailed);
     }
   }
 
@@ -147,13 +144,17 @@ class MediaUploadService {
   }
 }
 
+/// Reasons an upload couldn't proceed. AppErrorHandler maps these to a
+/// friendly, localized message — this layer never carries user-facing text.
+enum MediaUploadErrorCode { bucketMissing, bucketCheckFailed }
+
 /// Thrown when the app can't proceed with uploads due to missing buckets/config.
 class MediaUploadException implements Exception {
-  MediaUploadException(this.userMessage);
-  final String userMessage;
+  MediaUploadException(this.code);
+  final MediaUploadErrorCode code;
 
   @override
-  String toString() => 'MediaUploadException($userMessage)';
+  String toString() => 'MediaUploadException($code)';
 }
 
 extension _FirstOrNullExt<T> on Iterable<T> {

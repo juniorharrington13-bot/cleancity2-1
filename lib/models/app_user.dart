@@ -1,4 +1,7 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+
+import 'package:cleancity/theme.dart';
 
 /// Application-level user profile stored in the public `users` table.
 ///
@@ -15,6 +18,7 @@ class AppUser {
     required this.updatedAt,
     this.fullName,
     this.avatarUrl,
+    this.roleConfirmedAt,
   });
 
   final String id;
@@ -26,6 +30,11 @@ class AppUser {
   final DateTime updatedAt;
   final String? fullName;
   final String? avatarUrl;
+  final DateTime? roleConfirmedAt;
+
+  /// Whether this account has already locked in a role. Once true, only an
+  /// admin can change `role` (enforced server-side by enforce_role_change()).
+  bool get isRoleLocked => roleConfirmedAt != null;
 
   AppUser copyWith({
     String? id,
@@ -37,6 +46,7 @@ class AppUser {
     DateTime? updatedAt,
     String? fullName,
     String? avatarUrl,
+    DateTime? roleConfirmedAt,
   }) =>
       AppUser(
         id: id ?? this.id,
@@ -48,6 +58,7 @@ class AppUser {
         updatedAt: updatedAt ?? this.updatedAt,
         fullName: fullName ?? this.fullName,
         avatarUrl: avatarUrl ?? this.avatarUrl,
+        roleConfirmedAt: roleConfirmedAt ?? this.roleConfirmedAt,
       );
 
   Map<String, dynamic> toJson() => {
@@ -60,6 +71,7 @@ class AppUser {
         'updated_at': updatedAt.toIso8601String(),
         'full_name': fullName,
         'avatar_url': avatarUrl,
+        'role_confirmed_at': roleConfirmedAt?.toIso8601String(),
       };
 
   static AppUser fromJson(Map<String, dynamic> json) => AppUser(
@@ -74,28 +86,31 @@ class AppUser {
             DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
         fullName: json['full_name'] as String?,
         avatarUrl: json['avatar_url'] as String?,
+        roleConfirmedAt: DateTime.tryParse((json['role_confirmed_at'] ?? '') as String),
       );
 }
 
 extension AppUserUiX on AppUser {
-  String roleLabelFr() {
+  /// Localized, all-caps role label (e.g. "ADMIN", "COLLECTOR"/"COLLECTEUR").
+  String roleLabel(BuildContext context) {
+    final l10n = context.l10n;
     switch (role) {
       case 'admin':
-        return 'ADMIN';
+        return l10n.roleAdmin;
       case 'collector':
-        return 'COLLECTEUR';
+        return l10n.roleCollector;
       case 'center':
       case 'processing_center':
-        return 'CENTRE';
+        return l10n.roleCenter;
       case 'generator':
       default:
-        return 'GENERATEUR';
+        return l10n.roleGenerator;
     }
   }
 
-  String displayNameCapitalized() {
+  String displayNameCapitalized(BuildContext context) {
     final raw = (fullName ?? '').trim();
-    if (raw.isEmpty) return 'Utilisateur';
+    if (raw.isEmpty) return context.l10n.commonUser;
     final words = raw.split(RegExp(r'\s+'));
     final fixed = words.map((w) {
       final lower = w.toLowerCase();

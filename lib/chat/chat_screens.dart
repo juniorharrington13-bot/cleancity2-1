@@ -43,7 +43,7 @@ class _ChatThreadsScreenState extends State<ChatThreadsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Chat',
+              Text(context.l10n.chatTitle,
                   style: context.textStyles.titleLarge
                       ?.copyWith(fontWeight: FontWeight.bold)),
               IconButton(
@@ -60,17 +60,15 @@ class _ChatThreadsScreenState extends State<ChatThreadsScreen> {
                 return const LinearProgressIndicator();
               if (snap.hasError) {
                 return _ChatEmptyState(
-                  title: 'Chat indisponible',
-                  subtitle:
-                      'Impossible de charger les conversations pour le moment. Réessayez dans quelques instants.',
+                  title: context.l10n.chatUnavailableTitle,
+                  subtitle: context.l10n.chatUnavailableSubtitle,
                 );
               }
               final rows = snap.data ?? const <Map<String, dynamic>>[];
               if (rows.isEmpty) {
-                return const _ChatEmptyState(
-                    title: 'Aucune conversation',
-                    subtitle:
-                        'Ouvrez une demande puis cliquez sur “Chat”, ou utilisez “Contacter” depuis une fiche.');
+                return _ChatEmptyState(
+                    title: context.l10n.chatNoConversationsTitle,
+                    subtitle: context.l10n.chatNoConversationsSubtitle);
               }
 
               return Column(
@@ -82,8 +80,8 @@ class _ChatThreadsScreenState extends State<ChatThreadsScreen> {
                   final threadId = (r['thread_id'] ?? '').toString();
 
                   final title = requestId.trim().isNotEmpty
-                      ? 'Demande ${requestId.substring(0, 8).toUpperCase()}'
-                      : 'Conversation';
+                      ? context.l10n.chatRequestTitle(requestId.substring(0, 8).toUpperCase())
+                      : context.l10n.chatConversationFallbackTitle;
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
@@ -176,7 +174,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     } catch (e) {
       debugPrint('Send message failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, 'Envoi du message échoué.');
+      AppSnackbars.error(context, context.l10n.errorSendMessageFailed);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -187,12 +185,12 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     final threadId = widget.threadId;
     final title =
         widget.requestId != null && widget.requestId!.trim().isNotEmpty
-            ? 'Chat • ${widget.requestId!.substring(0, 8).toUpperCase()}'
-            : 'Chat';
+            ? context.l10n.chatRoomTitleWithId(widget.requestId!.substring(0, 8).toUpperCase())
+            : context.l10n.chatTitle;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Retour',
+          tooltip: context.l10n.chatBackTooltip,
           icon: Icon(Icons.arrow_back,
               color: Theme.of(context).colorScheme.onSurface),
           onPressed: () {
@@ -208,23 +206,22 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         children: [
           Expanded(
             child: threadId == null
-                ? const _ChatEmptyState(
-                    title: 'Conversation introuvable',
-                    subtitle: 'Identifiant de conversation manquant.')
+                ? _ChatEmptyState(
+                    title: context.l10n.chatConversationNotFoundTitle,
+                    subtitle: context.l10n.chatConversationNotFoundSubtitle)
                 : StreamBuilder(
                     stream: ChatService().streamMessages(threadId),
                     builder: (context, snap) {
                       if (snap.hasError) {
-                        return const _ChatEmptyState(
-                            title: 'Chat indisponible',
-                            subtitle:
-                                'Impossible de charger les messages pour le moment.');
+                        return _ChatEmptyState(
+                            title: context.l10n.chatUnavailableTitle,
+                            subtitle: context.l10n.chatMessagesUnavailableSubtitle);
                       }
                       final msgs = snap.data ?? const <Map<String, dynamic>>[];
                       if (msgs.isEmpty) {
-                        return const _ChatEmptyState(
-                            title: 'Dites bonjour',
-                            subtitle: 'Envoyez le premier message.');
+                        return _ChatEmptyState(
+                            title: context.l10n.chatSayHiTitle,
+                            subtitle: context.l10n.chatSayHiSubtitle);
                       }
                       final uid = Supabase.instance.client.auth.currentUser?.id;
                       return ListView.builder(
@@ -253,7 +250,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                       minLines: 1,
                       maxLines: 4,
                       decoration: InputDecoration(
-                          hintText: 'Ecrire un message...',
+                          hintText: context.l10n.chatMessageHint,
                           border: OutlineInputBorder(
                               borderRadius:
                                   BorderRadius.circular(AppRadius.lg))),

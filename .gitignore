@@ -28,6 +28,9 @@
 .pub/
 /build/
 
+# Generated localization code (regenerated from lib/l10n/*.arb via `flutter gen-l10n`)
+lib/l10n/generated/
+
 # Web related
 
 # Symbolication related

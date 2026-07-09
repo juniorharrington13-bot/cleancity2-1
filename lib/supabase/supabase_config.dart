@@ -55,7 +55,8 @@ class SupabaseService {
 
       return await query;
     } catch (e) {
-      throw _handleDatabaseError('select', table, e);
+      _logDatabaseError('select', table, e);
+      rethrow;
     }
   }
 
@@ -74,7 +75,8 @@ class SupabaseService {
 
       return await query.maybeSingle();
     } catch (e) {
-      throw _handleDatabaseError('selectSingle', table, e);
+      _logDatabaseError('selectSingle', table, e);
+      rethrow;
     }
   }
 
@@ -86,7 +88,8 @@ class SupabaseService {
     try {
       return await SupabaseConfig.client.from(table).insert(data).select();
     } catch (e) {
-      throw _handleDatabaseError('insert', table, e);
+      _logDatabaseError('insert', table, e);
+      rethrow;
     }
   }
 
@@ -98,7 +101,8 @@ class SupabaseService {
     try {
       return await SupabaseConfig.client.from(table).insert(data).select();
     } catch (e) {
-      throw _handleDatabaseError('insertMultiple', table, e);
+      _logDatabaseError('insertMultiple', table, e);
+      rethrow;
     }
   }
 
@@ -117,7 +121,8 @@ class SupabaseService {
 
       return await query.select();
     } catch (e) {
-      throw _handleDatabaseError('update', table, e);
+      _logDatabaseError('update', table, e);
+      rethrow;
     }
   }
 
@@ -135,7 +140,8 @@ class SupabaseService {
 
       await query;
     } catch (e) {
-      throw _handleDatabaseError('delete', table, e);
+      _logDatabaseError('delete', table, e);
+      rethrow;
     }
   }
 
@@ -143,16 +149,10 @@ class SupabaseService {
   static SupabaseQueryBuilder from(String table) =>
       SupabaseConfig.client.from(table);
 
-  /// Handle database errors
-  static String _handleDatabaseError(
-    String operation,
-    String table,
-    dynamic error,
-  ) {
-    if (error is PostgrestException) {
-      return 'Failed to $operation from $table: ${error.message}';
-    } else {
-      return 'Failed to $operation from $table: ${error.toString()}';
-    }
+  /// Logs technical detail for diagnostics. Callers rethrow the original
+  /// exception so AppErrorHandler.toUserMessage can map it to a friendly,
+  /// localized message — this layer never builds user-facing text.
+  static void _logDatabaseError(String operation, String table, dynamic error) {
+    debugPrint('Supabase $operation on $table failed: $error');
   }
 }
