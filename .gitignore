@@ -45,3 +45,6 @@ app.*.map.json
 # Local environment secrets (Supabase, Mapbox...)
 env/*.json
 !env/*.json.example
+
+# Microsoft Office temporary lock files
+~$*
