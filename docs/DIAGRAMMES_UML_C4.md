@@ -444,7 +444,7 @@ graph TB
         GMAP["🗺️ Google Maps\nOpenRouteService\nCartographie"]
         ONESIG["🔔 OneSignal\nNotifications push"]
         MOBMONEY["💳 Mobile Money\nOrange Money / MTN\nPaiements locaux"]
-        CICD["🔧 GitHub Actions\nCodemagic\nCI/CD builds"]
+        CICD["🔧 GitHub Actions\nCI/CD builds"]
     end
 
     GEN_U -->|Signale, suit, paie| CC

@@ -9,10 +9,39 @@ on:
       - main
 
 jobs:
-  build_and_upload:
-    name: Build & Upload Artifacts
-    runs-on: macos-latest # Utilisation de macOS pour pouvoir compiler l'application iOS
+  analyze_and_test:
+    name: Analyze & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        if: hashFiles('test/**') != ''
+        run: flutter test
+
+  build:
+    name: Build Android, iOS & Web
+    needs: analyze_and_test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: macos-latest # requis pour compiler la cible iOS
+    env:
+      # Un seul fichier d'env généré à partir des secrets du repo, consommé par
+      # tous les builds via --dart-define-from-file. Ajouter/mettre à jour les
+      # secrets dans Settings > Secrets and variables > Actions.
+      ENV_FILE: env/ci.json
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -21,20 +50,32 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17' # Requis pour les récentes versions de Gradle/Android
+          java-version: '17' # requis pour les récentes versions de Gradle/Android
+          cache: 'gradle'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+          cache: true
 
       - name: Install dependencies
         run: flutter pub get
 
-
+      - name: Write build-time env file
+        run: |
+          cat > "$ENV_FILE" << EOF
+          {
+            "SUPABASE_URL": "${{ secrets.SUPABASE_URL }}",
+            "SUPABASE_ANON_KEY": "${{ secrets.SUPABASE_ANON_KEY }}",
+            "MAPBOX_ACCESS_TOKEN": "${{ secrets.MAPBOX_ACCESS_TOKEN }}",
+            "OPEN_ROUTE_SERVICE_API_KEY": "${{ secrets.OPEN_ROUTE_SERVICE_API_KEY }}",
+            "ONESIGNAL_APP_ID": "${{ secrets.ONESIGNAL_APP_ID }}"
+          }
+          EOF
 
       - name: Build Android APK
-        run: flutter build apk --release
+        run: flutter build apk --release --dart-define-from-file="$ENV_FILE"
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
@@ -44,7 +85,7 @@ jobs:
           retention-days: 7
 
       - name: Build iOS App
-        run: flutter build ios --release --no-codesign
+        run: flutter build ios --release --no-codesign --dart-define-from-file="$ENV_FILE"
 
       - name: Upload iOS App
         uses: actions/upload-artifact@v4
@@ -54,7 +95,7 @@ jobs:
           retention-days: 7
 
       - name: Build Web App
-        run: flutter build web --release
+        run: flutter build web --release --dart-define-from-file="$ENV_FILE"
 
       - name: Upload Web App
         uses: actions/upload-artifact@v4
