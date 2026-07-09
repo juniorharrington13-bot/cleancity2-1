@@ -1,4 +1,4 @@
-package com.mycompany.CounterApp
+package com.cleancity.app
 
 import io.flutter.embedding.android.FlutterActivity
 
