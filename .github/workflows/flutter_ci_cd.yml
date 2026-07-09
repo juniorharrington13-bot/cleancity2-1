@@ -90,11 +90,21 @@ jobs:
       - name: Build iOS App
         run: flutter build ios --release --no-codesign --dart-define-from-file="$ENV_FILE"
 
-      - name: Upload iOS App
+      - name: Package unsigned .ipa
+        # Sideloading tools (Sideloadly, AltStore...) expect a real .ipa
+        # (a zip with a Payload/ folder), not the raw .app bundle. This app
+        # is still unsigned — the sideloading tool re-signs it with a free
+        # Apple ID at install time.
+        run: |
+          mkdir -p build/ios/ipa/Payload
+          cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
+          cd build/ios/ipa && zip -qr ../CleanCity-unsigned.ipa Payload
+
+      - name: Upload iOS .ipa
         uses: actions/upload-artifact@v4
         with:
-          name: cleancity-ios-app
-          path: build/ios/iphoneos
+          name: cleancity-ios-ipa
+          path: build/ios/CleanCity-unsigned.ipa
           retention-days: 7
 
       - name: Build Web App
