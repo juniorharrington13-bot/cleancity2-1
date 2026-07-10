@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:go_router/go_router.dart';
 import 'package:cleancity/nav.dart';
 import 'package:cleancity/models/app_user.dart';
 import 'package:cleancity/components/app_error_handler.dart';
 import 'package:cleancity/components/app_snackbars.dart';
+import 'package:cleancity/components/user_profile_tab.dart';
+import 'package:cleancity/services/app_settings_service.dart';
 import 'package:cleancity/services/app_user_service.dart';
 import 'package:cleancity/services/admin_stats_service.dart';
+import 'package:cleancity/services/payout_request_service.dart';
+import 'package:cleancity/models/payout_request.dart';
 import 'package:cleancity/constants/waste_rates.dart';
 import '../theme.dart';
 
@@ -225,6 +230,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return const UserManagementView();
       case 2:
         return const WasteCatalogView();
+      case 3:
+        return const AdminReportsView();
+      case 4:
+        return const AdminSettingsView();
       default:
         return Center(child: Text(context.l10n.adminUnderConstruction));
     }
@@ -1136,10 +1145,23 @@ class _RoleChips extends StatelessWidget {
   }
 }
 
-class WasteCatalogView extends StatelessWidget {
+class WasteCatalogView extends StatefulWidget {
   const WasteCatalogView({super.key});
 
+  @override
+  State<WasteCatalogView> createState() => _WasteCatalogViewState();
+}
+
+class _WasteCatalogViewState extends State<WasteCatalogView> {
   static const _order = ['plastic', 'paper', 'metal', 'glass', 'organic', 'ewaste', 'mixed'];
+
+  late Future<Map<String, int>> _ratesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _ratesFuture = AppSettingsService().getWasteRates();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1160,30 +1182,816 @@ class WasteCatalogView extends StatelessWidget {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.grey.shade200)),
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: _order.length,
-                separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey.shade100),
-                itemBuilder: (context, i) {
-                  final code = _order[i];
-                  final (label, icon, color) = _wasteTypeMeta(context, code);
-                  final rate = wasteXafPerKg[code] ?? 0;
-                  return ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8)),
-                      child: Icon(icon, color: color, size: 20),
-                    ),
-                    title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    trailing: Text('${_formatNumber(rate)} ${context.l10n.adminCatalogRateUnit}',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+              child: FutureBuilder<Map<String, int>>(
+                future: _ratesFuture,
+                builder: (context, snap) {
+                  if (snap.connectionState == ConnectionState.waiting) {
+                    return const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()));
+                  }
+                  final rates = snap.data ?? wasteXafPerKg;
+                  return ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: _order.length,
+                    separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey.shade100),
+                    itemBuilder: (context, i) {
+                      final code = _order[i];
+                      final (label, icon, color) = _wasteTypeMeta(context, code);
+                      final rate = rates[code] ?? 0;
+                      return ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8)),
+                          child: Icon(icon, color: color, size: 20),
+                        ),
+                        title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        trailing: Text('${_formatNumber(rate)} ${context.l10n.adminCatalogRateUnit}',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+                      );
+                    },
                   );
                 },
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- REPORTS VIEW ---
+String _csvField(String value) {
+  if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+    return '"${value.replaceAll('"', '""')}"';
+  }
+  return value;
+}
+
+String _toCsv(List<List<String>> rows) => rows.map((r) => r.map(_csvField).join(',')).join('\n');
+
+String _statusLabel(BuildContext context, String status) {
+  switch (status) {
+    case 'pending':
+      return context.l10n.statusPending;
+    case 'accepted':
+      return context.l10n.statusAccepted;
+    case 'collected':
+      return context.l10n.statusCollected;
+    case 'delivered':
+      return context.l10n.statusDelivered;
+    case 'cancelled':
+      return context.l10n.statusCancelled;
+    default:
+      return status.toUpperCase();
+  }
+}
+
+class AdminReportsView extends StatefulWidget {
+  const AdminReportsView({super.key});
+
+  @override
+  State<AdminReportsView> createState() => _AdminReportsViewState();
+}
+
+class _AdminReportsViewState extends State<AdminReportsView> {
+  static const _wasteTypes = ['plastic', 'paper', 'metal', 'glass', 'organic', 'ewaste', 'mixed'];
+  static const _statuses = ['pending', 'accepted', 'collected', 'delivered', 'cancelled'];
+
+  final _statsService = AdminStatsService();
+  final _payoutService = PayoutRequestService();
+
+  DateTimeRange? _range;
+  String? _city;
+  String? _wasteType;
+  String? _status;
+
+  late Future<List<String>> _citiesFuture;
+  late Future<List<AdminOperationRecord>> _opsFuture;
+  late Future<AdminFinancialSummary> _financialFuture;
+  late Future<List<PayoutRequest>> _payoutRequestsFuture;
+  String _payoutStatusFilter = 'pending';
+
+  @override
+  void initState() {
+    super.initState();
+    _citiesFuture = _statsService.listDistinctCities();
+    _reload();
+    _reloadPayoutRequests();
+  }
+
+  void _reload() {
+    setState(() {
+      _opsFuture = _statsService.getOperationsHistory(
+        from: _range?.start,
+        to: _range?.end,
+        city: _city,
+        wasteType: _wasteType,
+        status: _status,
+      );
+      _financialFuture = _statsService.getFinancialSummary(from: _range?.start, to: _range?.end);
+    });
+  }
+
+  void _reloadPayoutRequests() {
+    setState(() {
+      _payoutRequestsFuture = _payoutService.listAll(status: _payoutStatusFilter.isEmpty ? null : _payoutStatusFilter);
+    });
+  }
+
+  Future<void> _pickRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 3),
+      lastDate: now,
+      initialDateRange: _range,
+    );
+    if (picked == null) return;
+    setState(() => _range = picked);
+    _reload();
+  }
+
+  Future<void> _copyToClipboard(String csv) async {
+    await Clipboard.setData(ClipboardData(text: csv));
+    if (!mounted) return;
+    AppSnackbars.success(context, context.l10n.adminReportsCopiedToClipboard);
+  }
+
+  Future<void> _actOnPayout(PayoutRequest req, String newStatus) async {
+    try {
+      await _payoutService.updateStatus(id: req.id, status: newStatus);
+      if (!mounted) return;
+      AppSnackbars.success(context, context.l10n.adminReportsPayoutUpdated);
+      _reloadPayoutRequests();
+      _reload();
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackbars.error(context, context.l10n.adminReportsPayoutUpdateFailed);
+    }
+  }
+
+  String _rangeLabel(BuildContext context) {
+    if (_range == null) return context.l10n.adminReportsAllTime;
+    String fmt(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    return '${fmt(_range!.start)} - ${fmt(_range!.end)}';
+  }
+
+  Widget _filterBar(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        OutlinedButton.icon(
+          onPressed: _pickRange,
+          icon: const Icon(Icons.date_range, size: 18),
+          label: Text(_rangeLabel(context)),
+        ),
+        if (_range != null)
+          TextButton(
+            onPressed: () {
+              setState(() => _range = null);
+              _reload();
+            },
+            child: Text(context.l10n.commonClose),
+          ),
+        FutureBuilder<List<String>>(
+          future: _citiesFuture,
+          builder: (context, snap) {
+            final cities = snap.data ?? const <String>[];
+            return DropdownButton<String?>(
+              value: _city,
+              hint: Text(context.l10n.adminReportsCityFilter),
+              items: [
+                DropdownMenuItem<String?>(value: null, child: Text(context.l10n.commonAll)),
+                ...cities.map((c) => DropdownMenuItem<String?>(value: c, child: Text(c))),
+              ],
+              onChanged: (v) {
+                setState(() => _city = v);
+                _reload();
+              },
+            );
+          },
+        ),
+        DropdownButton<String?>(
+          value: _wasteType,
+          hint: Text(context.l10n.adminReportsWasteTypeFilter),
+          items: [
+            DropdownMenuItem<String?>(value: null, child: Text(context.l10n.commonAll)),
+            ..._wasteTypes.map((t) => DropdownMenuItem<String?>(value: t, child: Text(_wasteTypeMeta(context, t).$1))),
+          ],
+          onChanged: (v) {
+            setState(() => _wasteType = v);
+            _reload();
+          },
+        ),
+        DropdownButton<String?>(
+          value: _status,
+          hint: Text(context.l10n.adminReportsStatusFilter),
+          items: [
+            DropdownMenuItem<String?>(value: null, child: Text(context.l10n.commonAll)),
+            ..._statuses.map((s) => DropdownMenuItem<String?>(value: s, child: Text(_statusLabel(context, s)))),
+          ],
+          onChanged: (v) {
+            setState(() => _status = v);
+            _reload();
+          },
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 3,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(context.l10n.adminNavReports, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
+                const SizedBox(height: 16),
+                _filterBar(context),
+                const SizedBox(height: 8),
+                TabBar(
+                  isScrollable: true,
+                  labelColor: LightModeColors.lightPrimary,
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: LightModeColors.lightPrimary,
+                  tabs: [
+                    Tab(text: context.l10n.adminReportsStatsTab),
+                    Tab(text: context.l10n.adminReportsHistoryTab),
+                    Tab(text: context.l10n.adminReportsFinancialTab),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildStatsTab(context),
+                _buildHistoryTab(context),
+                _buildFinancialTab(context),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsTab(BuildContext context) {
+    return FutureBuilder<List<AdminOperationRecord>>(
+      future: _opsFuture,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snap.hasError) {
+          return Center(child: Text(context.l10n.centerDeliveriesLoadFailed, style: const TextStyle(color: Colors.red)));
+        }
+        final rows = snap.data ?? const <AdminOperationRecord>[];
+        final totalKg = rows.fold<double>(0, (a, r) => a + r.quantityEstimateKg);
+        final byStatus = <String, int>{};
+        final byType = <String, double>{};
+        for (final r in rows) {
+          byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
+          byType[r.wasteType] = (byType[r.wasteType] ?? 0) + r.quantityEstimateKg;
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(context.l10n.adminReportsMatchingRequests(rows.length),
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.copy_outlined, size: 16),
+                    label: Text(context.l10n.adminReportsExportCsv),
+                    onPressed: () => _copyToClipboard(_toCsv([
+                      ['metric', 'value'],
+                      ['total_requests', '${rows.length}'],
+                      ['total_kg', totalKg.toStringAsFixed(1)],
+                      for (final e in byStatus.entries) ['status_${e.key}', '${e.value}'],
+                      for (final e in byType.entries) ['type_${e.key}_kg', e.value.toStringAsFixed(1)],
+                    ])),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Wrap(spacing: 16, runSpacing: 16, children: [
+                _buildStatCard(context.l10n.adminReportsTotalRequests, '${rows.length}', '', '', Colors.blue),
+                _buildStatCard(context.l10n.adminStatWasteCollected, _formatNumber(totalKg, decimals: 1), context.l10n.adminUnitKg, '', Colors.green),
+              ]),
+              const SizedBox(height: 24),
+              Text(context.l10n.adminReportsByStatus, style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              for (final s in _statuses)
+                if ((byStatus[s] ?? 0) > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(children: [
+                      Expanded(child: Text(_statusLabel(context, s))),
+                      Text('${byStatus[s]}'),
+                    ]),
+                  ),
+              const SizedBox(height: 24),
+              Text(context.l10n.adminReportsByWasteType, style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              for (final t in _wasteTypes)
+                if ((byType[t] ?? 0) > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(children: [
+                      Expanded(child: Text(_wasteTypeMeta(context, t).$1)),
+                      Text('${byType[t]!.toStringAsFixed(1)} ${context.l10n.adminUnitKg}'),
+                    ]),
+                  ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHistoryTab(BuildContext context) {
+    return FutureBuilder<List<AdminOperationRecord>>(
+      future: _opsFuture,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snap.hasError) {
+          return Center(child: Text(context.l10n.centerDeliveriesLoadFailed, style: const TextStyle(color: Colors.red)));
+        }
+        final rows = snap.data ?? const <AdminOperationRecord>[];
+        if (rows.isEmpty) {
+          return Center(child: Text(context.l10n.adminReportsNoResults));
+        }
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.copy_outlined, size: 16),
+                  label: Text(context.l10n.adminReportsExportCsv),
+                  onPressed: () => _copyToClipboard(_toCsv([
+                    ['id', 'waste_type', 'status', 'kg', 'city', 'neighborhood', 'created_at', 'generator', 'collector', 'center'],
+                    for (final r in rows)
+                      [
+                        r.id,
+                        r.wasteType,
+                        r.status,
+                        r.quantityEstimateKg.toStringAsFixed(1),
+                        r.city,
+                        r.neighborhood,
+                        r.createdAt?.toIso8601String() ?? '',
+                        r.generatorName,
+                        r.collectorName ?? '',
+                        r.centerName ?? '',
+                      ],
+                  ])),
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.all(24),
+                itemCount: rows.length,
+                separatorBuilder: (_, __) => const Divider(height: 24),
+                itemBuilder: (context, i) {
+                  final r = rows[i];
+                  final location = [r.neighborhood, r.city].where((s) => s.trim().isNotEmpty).join(', ');
+                  final (label, icon, color) = _wasteTypeMeta(context, r.wasteType);
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                        child: Icon(icon, color: color, size: 18),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('$label • ${r.quantityEstimateKg.toStringAsFixed(1)} kg • ${_statusLabel(context, r.status)}',
+                                style: const TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 2),
+                            Text(location.isEmpty ? '—' : location, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                            const SizedBox(height: 2),
+                            Text(
+                              context.l10n.adminReportsPeopleLine(
+                                  r.generatorName.isEmpty ? '—' : r.generatorName, r.collectorName ?? '—', r.centerName ?? '—'),
+                              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        r.createdAt == null
+                            ? '—'
+                            : '${r.createdAt!.day.toString().padLeft(2, '0')}/${r.createdAt!.month.toString().padLeft(2, '0')}/${r.createdAt!.year}',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, String unit, String subtitle, Color color) {
+    return Container(
+      width: 220,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 28)),
+              if (unit.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                Padding(padding: const EdgeInsets.only(bottom: 4.0), child: Text(unit, style: const TextStyle(color: Colors.grey, fontSize: 14))),
+              ],
+            ],
+          ),
+          if (subtitle.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(subtitle, style: TextStyle(color: color, fontSize: 12)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFinancialTab(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          FutureBuilder<AdminFinancialSummary>(
+            future: _financialFuture,
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snap.hasError) {
+                return Text(context.l10n.centerDeliveriesLoadFailed, style: const TextStyle(color: Colors.red));
+              }
+              final summary = snap.data;
+              if (summary == null) return const SizedBox.shrink();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildStatCard(context.l10n.adminReportsTotalPayouts, _formatNumber(summary.totalPayoutsXaf), 'XAF', '', Colors.purple),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.copy_outlined, size: 16),
+                        label: Text(context.l10n.adminReportsExportCsv),
+                        onPressed: () => _copyToClipboard(_toCsv([
+                          ['collector', 'total_xaf', 'count'],
+                          for (final p in summary.payoutsByCollector) [p.collectorName, p.totalXaf.toStringAsFixed(0), '${p.count}'],
+                          [],
+                          ['center', 'total_kg', 'count'],
+                          for (final c in summary.volumeByCenter) [c.centerName, c.totalKg.toStringAsFixed(1), '${c.count}'],
+                        ])),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Text(context.l10n.adminReportsPayoutsByCollector, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  if (summary.payoutsByCollector.isEmpty) Text(context.l10n.adminReportsNoResults),
+                  for (final p in summary.payoutsByCollector)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(children: [
+                        Expanded(child: Text(p.collectorName)),
+                        Text('${_formatNumber(p.totalXaf)} XAF • ${p.count}'),
+                      ]),
+                    ),
+                  const SizedBox(height: 24),
+                  Text(context.l10n.adminReportsVolumeByCenter, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  if (summary.volumeByCenter.isEmpty) Text(context.l10n.adminReportsNoResults),
+                  for (final c in summary.volumeByCenter)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(children: [
+                        Expanded(child: Text(c.centerName)),
+                        Text('${c.totalKg.toStringAsFixed(1)} kg • ${c.count}'),
+                      ]),
+                    ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 32),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(context.l10n.adminReportsPayoutRequests, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              DropdownButton<String>(
+                value: _payoutStatusFilter,
+                items: [
+                  DropdownMenuItem(value: 'pending', child: Text(context.l10n.adminReportsPayoutPending)),
+                  DropdownMenuItem(value: 'paid', child: Text(context.l10n.adminReportsPayoutPaid)),
+                  DropdownMenuItem(value: 'rejected', child: Text(context.l10n.adminReportsPayoutRejected)),
+                ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  setState(() => _payoutStatusFilter = v);
+                  _reloadPayoutRequests();
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          FutureBuilder<List<PayoutRequest>>(
+            future: _payoutRequestsFuture,
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()));
+              }
+              if (snap.hasError) {
+                return Text(context.l10n.centerDeliveriesLoadFailed, style: const TextStyle(color: Colors.red));
+              }
+              final reqs = snap.data ?? const <PayoutRequest>[];
+              if (reqs.isEmpty) return Text(context.l10n.adminReportsNoResults);
+              return Column(
+                children: reqs.map((r) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration:
+                        BoxDecoration(border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(12)),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('${_formatNumber(r.amountXaf)} XAF • ${r.provider.toUpperCase()}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 2),
+                              Text(r.phone, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                        if (r.status == 'pending') ...[
+                          TextButton(
+                            onPressed: () => _actOnPayout(r, 'rejected'),
+                            child: Text(context.l10n.adminReportsPayoutRejected, style: const TextStyle(color: Colors.red)),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => _actOnPayout(r, 'paid'),
+                            child: Text(context.l10n.adminReportsMarkPaid),
+                          ),
+                        ] else
+                          Chip(label: Text(r.status.toUpperCase())),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- SETTINGS VIEW ---
+class AdminSettingsView extends StatefulWidget {
+  const AdminSettingsView({super.key});
+
+  @override
+  State<AdminSettingsView> createState() => _AdminSettingsViewState();
+}
+
+class _AdminSettingsViewState extends State<AdminSettingsView> {
+  static const _order = ['plastic', 'paper', 'metal', 'glass', 'organic', 'ewaste', 'mixed'];
+
+  final _settingsService = AppSettingsService();
+  final _rateControllers = <String, TextEditingController>{
+    for (final code in _order) code: TextEditingController(),
+  };
+  final _goalController = TextEditingController();
+
+  late Future<void> _future;
+  bool _savingRates = false;
+  bool _savingGoal = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  Future<void> _load() async {
+    final rates = await _settingsService.getWasteRates();
+    final goal = await _settingsService.getRecoveryGoalPercent();
+    for (final code in _order) {
+      _rateControllers[code]!.text = '${rates[code] ?? 0}';
+    }
+    _goalController.text = goal.toStringAsFixed(0);
+  }
+
+  @override
+  void dispose() {
+    for (final c in _rateControllers.values) {
+      c.dispose();
+    }
+    _goalController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveRates() async {
+    setState(() => _savingRates = true);
+    try {
+      final updated = <String, int>{
+        for (final code in _order) code: int.tryParse(_rateControllers[code]!.text.trim()) ?? 0,
+      };
+      await _settingsService.updateWasteRates(updated);
+      if (!mounted) return;
+      AppSnackbars.success(context, context.l10n.adminSettingsSaved);
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackbars.error(context, context.l10n.adminSettingsSaveFailed);
+    } finally {
+      if (mounted) setState(() => _savingRates = false);
+    }
+  }
+
+  Future<void> _saveGoal() async {
+    setState(() => _savingGoal = true);
+    try {
+      final value = double.tryParse(_goalController.text.trim().replaceAll(',', '.')) ?? 70;
+      await _settingsService.updateRecoveryGoalPercent(value);
+      if (!mounted) return;
+      AppSnackbars.success(context, context.l10n.adminSettingsSaved);
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackbars.error(context, context.l10n.adminSettingsSaveFailed);
+    } finally {
+      if (mounted) setState(() => _savingGoal = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(context.l10n.adminNavSettings, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
+          const SizedBox(height: 16),
+          FutureBuilder<void>(
+            future: _future,
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: CircularProgressIndicator()));
+              }
+              if (snap.hasError) {
+                return Text(context.l10n.adminSettingsLoadFailed, style: const TextStyle(color: Colors.red));
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SettingsSection(
+                    title: context.l10n.adminSettingsRatesTitle,
+                    subtitle: context.l10n.adminSettingsRatesSubtitle,
+                    child: Column(
+                      children: [
+                        for (final code in _order)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              children: [
+                                Expanded(child: Text(_wasteTypeMeta(context, code).$1)),
+                                SizedBox(
+                                  width: 120,
+                                  child: TextField(
+                                    controller: _rateControllers[code],
+                                    keyboardType: TextInputType.number,
+                                    textAlign: TextAlign.right,
+                                    decoration: InputDecoration(
+                                      isDense: true,
+                                      suffixText: context.l10n.adminCatalogRateUnit,
+                                      border: const OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: ElevatedButton(
+                            onPressed: _savingRates ? null : _saveRates,
+                            child: _savingRates
+                                ? const SizedBox(
+                                    height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                : Text(context.l10n.commonSave),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _SettingsSection(
+                    title: context.l10n.adminSettingsAppTitle,
+                    subtitle: context.l10n.adminSettingsAppSubtitle,
+                    child: Row(
+                      children: [
+                        Expanded(child: Text(context.l10n.adminSettingsRecoveryGoalLabel)),
+                        SizedBox(
+                          width: 120,
+                          child: TextField(
+                            controller: _goalController,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.right,
+                            decoration:
+                                const InputDecoration(isDense: true, suffixText: '%', border: OutlineInputBorder()),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: _savingGoal ? null : _saveGoal,
+                          child: _savingGoal
+                              ? const SizedBox(
+                                  height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                              : Text(context.l10n.commonSave),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _SettingsSection(
+                    title: context.l10n.adminSettingsProfileTitle,
+                    subtitle: context.l10n.adminSettingsProfileSubtitle,
+                    child: const SizedBox(height: 520, child: UserProfileTab()),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({required this.title, required this.subtitle, required this.child});
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 4),
+          Text(subtitle, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+          const SizedBox(height: 16),
+          child,
         ],
       ),
     );

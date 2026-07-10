@@ -161,6 +161,74 @@ class _CenterMainTabState extends State<_CenterMainTab> {
     return context.l10n.adminStatVsLastMonth('$sign${percent.toStringAsFixed(1)}%');
   }
 
+  Future<void> _openQuickReception() async {
+    List<CenterPendingReception> pending;
+    try {
+      pending = await _statsService.getPendingReceptions();
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackbars.error(context, context.l10n.centerDeliveriesLoadFailed);
+      return;
+    }
+    if (!mounted) return;
+
+    if (pending.isEmpty) {
+      AppSnackbars.warning(context, context.l10n.centerNoPendingReceptionMessage);
+      return;
+    }
+
+    if (pending.length == 1) {
+      context.push(AppRoutes.receptionForm, extra: pending.first.requestId);
+      return;
+    }
+
+    final chosen = await showModalBottomSheet<CenterPendingReception>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: LightModeColors.lightSurface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+      builder: (sheetContext) {
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(context.l10n.centerReceptionPickerTitle,
+                  style: context.textStyles.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 420),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: pending.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, i) {
+                    final d = pending[i];
+                    final location = [d.neighborhood, d.city].where((s) => s.trim().isNotEmpty).join(', ');
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => Navigator.of(sheetContext).pop(d),
+                      child: _DeliveryCard(
+                        truck: 'REQ-${d.requestId.substring(0, 6).toUpperCase()}',
+                        type: d.wasteType.toUpperCase(),
+                        status: '${d.quantityEstimateKg.toStringAsFixed(1)} kg${location.isEmpty ? '' : ' • $location'}',
+                        time: context.l10n.commonOpen,
+                        color: _colorForType(d.wasteType),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (chosen == null || !mounted) return;
+    context.push(AppRoutes.receptionForm, extra: chosen.requestId);
+  }
+
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
@@ -174,7 +242,7 @@ class _CenterMainTabState extends State<_CenterMainTab> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => context.push(AppRoutes.receptionForm),
+                onPressed: _openQuickReception,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

@@ -26,6 +26,44 @@ class PayoutRequestService {
     }
   }
 
+  /// Admin-only: lists payout requests across all users, optionally filtered
+  /// by status. RLS only lets rows through for the owner or an admin, so a
+  /// non-admin calling this simply gets their own requests back.
+  Future<List<PayoutRequest>> listAll({String? status, int limit = 100}) async {
+    try {
+      var query = _client.from('payout_requests').select('*');
+      if (status != null && status.isNotEmpty) {
+        query = query.eq('status', status);
+      }
+      final rows = await query.order('created_at', ascending: false).limit(limit);
+      return rows.whereType<Map>().map((e) => PayoutRequest.fromJson(Map<String, dynamic>.from(e))).toList(growable: false);
+    } on PostgrestException catch (e) {
+      debugPrint('PayoutRequestService.listAll failed: ${e.message}');
+      rethrow;
+    } catch (e) {
+      debugPrint('PayoutRequestService.listAll failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Admin-only: approves or rejects a payout request. Enforced server-side
+  /// by the `payout_requests_update_admin` RLS policy.
+  Future<void> updateStatus({required String id, required String status, String? adminNote}) async {
+    try {
+      await _client.from('payout_requests').update({
+        'status': status,
+        if (adminNote != null) 'admin_note': adminNote,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', id);
+    } on PostgrestException catch (e) {
+      debugPrint('PayoutRequestService.updateStatus failed: ${e.message}');
+      rethrow;
+    } catch (e) {
+      debugPrint('PayoutRequestService.updateStatus failed: $e');
+      rethrow;
+    }
+  }
+
   Future<PayoutRequest> create({required String provider, required String phone, required int amountXaf}) async {
     final uid = currentUserId;
     if (uid == null) throw StateError('Not authenticated');

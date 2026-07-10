@@ -51,6 +51,25 @@ class CenterExpectedDelivery {
   final DateTime? acceptedAt;
 }
 
+@immutable
+class CenterPendingReception {
+  const CenterPendingReception({
+    required this.requestId,
+    required this.wasteType,
+    required this.quantityEstimateKg,
+    required this.city,
+    required this.neighborhood,
+    required this.deliveredAt,
+  });
+
+  final String requestId;
+  final String wasteType;
+  final double quantityEstimateKg;
+  final String city;
+  final String neighborhood;
+  final DateTime? deliveredAt;
+}
+
 /// Reads center-scoped dashboard metrics from Supabase. Aggregation happens
 /// client-side, same rationale as [AdminStatsService]: request volume is low
 /// enough that pulling raw rows per center is cheap and avoids duplicating
@@ -185,6 +204,53 @@ class CenterStatsService {
       }).toList(growable: false);
     } catch (e) {
       debugPrint('CenterStatsService.getExpectedDeliveries failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Deliveries that have arrived at this center (`delivered_at` set) but
+  /// don't have a `processing_events` row yet, i.e. still awaiting weighing
+  /// and reception confirmation. Used to drive the "quick reception" picker.
+  Future<List<CenterPendingReception>> getPendingReceptions({int limit = 20}) async {
+    final uid = currentUserId;
+    if (uid == null) return const [];
+
+    try {
+      final results = await Future.wait<dynamic>([
+        _client.from('processing_events').select('request_id').eq('center_id', uid),
+        _client
+            .from('pickups')
+            .select('request_id, delivered_at, waste_requests(waste_type, quantity_estimate_kg, addresses(city, neighborhood))')
+            .eq('center_id', uid)
+            .not('delivered_at', 'is', null)
+            .order('delivered_at', ascending: false)
+            .limit(limit),
+      ]);
+
+      final processedIds = (results[0] as List)
+          .whereType<Map>()
+          .map((r) => (r['request_id'] ?? '').toString())
+          .toSet();
+
+      final rows = (results[1] as List).whereType<Map>().toList(growable: false);
+      return rows
+          .map((raw) {
+            final row = Map<String, dynamic>.from(raw);
+            final wr = row['waste_requests'] is Map ? Map<String, dynamic>.from(row['waste_requests'] as Map) : const <String, dynamic>{};
+            final address = wr['addresses'] is Map ? Map<String, dynamic>.from(wr['addresses'] as Map) : const <String, dynamic>{};
+            return CenterPendingReception(
+              requestId: (row['request_id'] ?? '').toString(),
+              wasteType: (wr['waste_type'] ?? 'mixed').toString(),
+              quantityEstimateKg: _asDouble(wr['quantity_estimate_kg']),
+              city: (address['city'] ?? '').toString(),
+              neighborhood: (address['neighborhood'] ?? '').toString(),
+              deliveredAt: DateTime.tryParse('${row['delivered_at']}'),
+            );
+          })
+          .where((d) => d.requestId.isNotEmpty && !processedIds.contains(d.requestId))
+          .toList(growable: false);
+    } catch (e) {
+      debugPrint('CenterStatsService.getPendingReceptions failed: $e');
       rethrow;
     }
   }

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:cleancity/constants/waste_rates.dart';
 import 'package:cleancity/models/waste_request.dart';
+import 'package:cleancity/services/app_settings_service.dart';
 import 'package:cleancity/supabase/supabase_config.dart';
 
 class WasteRequestService {
@@ -506,7 +507,8 @@ class WasteRequestService {
           .maybeSingle();
       final wasteType = (wr?['waste_type'] ?? 'mixed').toString();
 
-      final rate = wasteXafPerKg[wasteType] ?? wasteXafPerKg['mixed']!;
+      final rates = await AppSettingsService().getWasteRates();
+      final rate = rates[wasteType] ?? rates['mixed'] ?? wasteXafPerKg['mixed']!;
       final amountXaf = (weighedKg * rate).round();
 
       await _client.from('eco_transactions').insert({

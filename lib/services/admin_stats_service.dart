@@ -39,6 +39,63 @@ class AdminRecentOperation {
   final String status;
 }
 
+@immutable
+class AdminOperationRecord {
+  const AdminOperationRecord({
+    required this.id,
+    required this.wasteType,
+    required this.status,
+    required this.quantityEstimateKg,
+    required this.city,
+    required this.neighborhood,
+    required this.createdAt,
+    required this.generatorName,
+    required this.collectorName,
+    required this.centerName,
+  });
+
+  final String id;
+  final String wasteType;
+  final String status;
+  final double quantityEstimateKg;
+  final String city;
+  final String neighborhood;
+  final DateTime? createdAt;
+  final String generatorName;
+  final String? collectorName;
+  final String? centerName;
+}
+
+@immutable
+class AdminCollectorPayout {
+  const AdminCollectorPayout({required this.collectorId, required this.collectorName, required this.totalXaf, required this.count});
+  final String collectorId;
+  final String collectorName;
+  final double totalXaf;
+  final int count;
+}
+
+@immutable
+class AdminCenterVolume {
+  const AdminCenterVolume({required this.centerId, required this.centerName, required this.totalKg, required this.count});
+  final String centerId;
+  final String centerName;
+  final double totalKg;
+  final int count;
+}
+
+@immutable
+class AdminFinancialSummary {
+  const AdminFinancialSummary({
+    required this.totalPayoutsXaf,
+    required this.payoutsByCollector,
+    required this.volumeByCenter,
+  });
+  final double totalPayoutsXaf;
+  final List<AdminCollectorPayout> payoutsByCollector;
+  final List<AdminCenterVolume> volumeByCenter;
+}
+
 /// Reads aggregate metrics for the admin dashboard from Supabase.
 ///
 /// Aggregation happens client-side rather than via a Postgres RPC: request
@@ -172,6 +229,139 @@ class AdminStatsService {
       }).toList(growable: false);
     } catch (e) {
       debugPrint('AdminStatsService.getRecentOperations failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Full filterable operations list backing the admin Reports view.
+  /// City filtering happens client-side (see rationale on the class docstring:
+  /// request volume here is low enough that this is simpler and cheaper than
+  /// juggling PostgREST's embedded-resource filter syntax).
+  Future<List<AdminOperationRecord>> getOperationsHistory({
+    DateTime? from,
+    DateTime? to,
+    String? city,
+    String? wasteType,
+    String? status,
+    int limit = 500,
+  }) async {
+    try {
+      var query = _client.from('waste_requests').select(
+          'id, waste_type, status, quantity_estimate_kg, created_at, '
+          'addresses(city, neighborhood), '
+          'generator:users!generator_id(full_name), '
+          'pickups(collector:users!collector_id(full_name), center:users!center_id(full_name))');
+      if (from != null) query = query.gte('created_at', from.toUtc().toIso8601String());
+      if (to != null) query = query.lte('created_at', to.toUtc().toIso8601String());
+      if (wasteType != null && wasteType.isNotEmpty) query = query.eq('waste_type', wasteType);
+      if (status != null && status.isNotEmpty) query = query.eq('status', status);
+
+      final rows = await query.order('created_at', ascending: false).limit(limit);
+      final list = (rows as List).whereType<Map>().map((raw) {
+        final row = Map<String, dynamic>.from(raw);
+        final address = row['addresses'] is Map ? Map<String, dynamic>.from(row['addresses'] as Map) : const <String, dynamic>{};
+        final generator = row['generator'] is Map ? Map<String, dynamic>.from(row['generator'] as Map) : const <String, dynamic>{};
+        final pickupsList = (row['pickups'] as List?) ?? const [];
+        final pickup0 = pickupsList.isNotEmpty ? Map<String, dynamic>.from(pickupsList.first as Map) : const <String, dynamic>{};
+        final collector = pickup0['collector'] is Map ? Map<String, dynamic>.from(pickup0['collector'] as Map) : null;
+        final center = pickup0['center'] is Map ? Map<String, dynamic>.from(pickup0['center'] as Map) : null;
+        return AdminOperationRecord(
+          id: (row['id'] ?? '').toString(),
+          wasteType: (row['waste_type'] ?? 'mixed').toString(),
+          status: (row['status'] ?? 'pending').toString(),
+          quantityEstimateKg: _asDouble(row['quantity_estimate_kg']),
+          city: (address['city'] ?? '').toString(),
+          neighborhood: (address['neighborhood'] ?? '').toString(),
+          createdAt: DateTime.tryParse('${row['created_at']}'),
+          generatorName: (generator['full_name'] ?? '').toString(),
+          collectorName: (collector?['full_name'] as String?)?.trim(),
+          centerName: (center?['full_name'] as String?)?.trim(),
+        );
+      }).toList(growable: false);
+
+      if (city == null || city.trim().isEmpty) return list;
+      final needle = city.trim().toLowerCase();
+      return list.where((r) => r.city.toLowerCase() == needle).toList(growable: false);
+    } catch (e) {
+      debugPrint('AdminStatsService.getOperationsHistory failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Distinct, sorted city names found on `addresses`, used to populate the
+  /// Reports filter dropdown.
+  Future<List<String>> listDistinctCities() async {
+    try {
+      final rows = await _client.from('addresses').select('city');
+      final set = <String>{};
+      for (final raw in (rows as List).whereType<Map>()) {
+        final city = (raw['city'] as String?)?.trim();
+        if (city != null && city.isNotEmpty) set.add(city);
+      }
+      return set.toList()..sort();
+    } catch (e) {
+      debugPrint('AdminStatsService.listDistinctCities failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Collector payouts and center processed volume for the given period.
+  /// There's no downstream sale-price data in the schema, so this reports
+  /// payouts and processed volume rather than a fabricated profit margin.
+  Future<AdminFinancialSummary> getFinancialSummary({DateTime? from, DateTime? to}) async {
+    try {
+      var payoutQuery = _client.from('eco_transactions').select('points, user_id, created_at, collector:users!user_id(full_name)').eq('reason', 'payout');
+      if (from != null) payoutQuery = payoutQuery.gte('created_at', from.toUtc().toIso8601String());
+      if (to != null) payoutQuery = payoutQuery.lte('created_at', to.toUtc().toIso8601String());
+      final payoutRows = await payoutQuery;
+
+      var processingQuery = _client.from('processing_events').select('weighed_kg, center_id, created_at, center:users!center_id(full_name)');
+      if (from != null) processingQuery = processingQuery.gte('created_at', from.toUtc().toIso8601String());
+      if (to != null) processingQuery = processingQuery.lte('created_at', to.toUtc().toIso8601String());
+      final processingRows = await processingQuery;
+
+      final byCollector = <String, AdminCollectorPayout>{};
+      var totalPayouts = 0.0;
+      for (final raw in (payoutRows as List).whereType<Map>()) {
+        final row = Map<String, dynamic>.from(raw);
+        final uid = (row['user_id'] ?? '').toString();
+        if (uid.isEmpty) continue;
+        final pts = _asDouble(row['points']);
+        totalPayouts += pts;
+        final collector = row['collector'] is Map ? Map<String, dynamic>.from(row['collector'] as Map) : const <String, dynamic>{};
+        final name = (collector['full_name'] as String?)?.trim();
+        final existing = byCollector[uid];
+        byCollector[uid] = AdminCollectorPayout(
+          collectorId: uid,
+          collectorName: (name == null || name.isEmpty) ? uid.substring(0, 8) : name,
+          totalXaf: (existing?.totalXaf ?? 0) + pts,
+          count: (existing?.count ?? 0) + 1,
+        );
+      }
+
+      final byCenter = <String, AdminCenterVolume>{};
+      for (final raw in (processingRows as List).whereType<Map>()) {
+        final row = Map<String, dynamic>.from(raw);
+        final cid = (row['center_id'] ?? '').toString();
+        if (cid.isEmpty) continue;
+        final kg = _asDouble(row['weighed_kg']);
+        final center = row['center'] is Map ? Map<String, dynamic>.from(row['center'] as Map) : const <String, dynamic>{};
+        final name = (center['full_name'] as String?)?.trim();
+        final existing = byCenter[cid];
+        byCenter[cid] = AdminCenterVolume(
+          centerId: cid,
+          centerName: (name == null || name.isEmpty) ? cid.substring(0, 8) : name,
+          totalKg: (existing?.totalKg ?? 0) + kg,
+          count: (existing?.count ?? 0) + 1,
+        );
+      }
+
+      final payoutList = byCollector.values.toList()..sort((a, b) => b.totalXaf.compareTo(a.totalXaf));
+      final centerList = byCenter.values.toList()..sort((a, b) => b.totalKg.compareTo(a.totalKg));
+
+      return AdminFinancialSummary(totalPayoutsXaf: totalPayouts, payoutsByCollector: payoutList, volumeByCenter: centerList);
+    } catch (e) {
+      debugPrint('AdminStatsService.getFinancialSummary failed: $e');
       rethrow;
     }
   }
