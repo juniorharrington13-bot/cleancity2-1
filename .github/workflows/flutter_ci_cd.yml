@@ -66,16 +66,29 @@ jobs:
         run: flutter pub get
 
       - name: Write build-time env file
+        # Built with jq --arg (not a raw heredoc) so any stray whitespace,
+        # newlines, or quotes accidentally pasted into a secret's value get
+        # properly escaped instead of producing invalid JSON.
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          MAPBOX_ACCESS_TOKEN: ${{ secrets.MAPBOX_ACCESS_TOKEN }}
+          OPEN_ROUTE_SERVICE_API_KEY: ${{ secrets.OPEN_ROUTE_SERVICE_API_KEY }}
+          ONESIGNAL_APP_ID: ${{ secrets.ONESIGNAL_APP_ID }}
         run: |
-          cat > "$ENV_FILE" << EOF
-          {
-            "SUPABASE_URL": "${{ secrets.SUPABASE_URL }}",
-            "SUPABASE_ANON_KEY": "${{ secrets.SUPABASE_ANON_KEY }}",
-            "MAPBOX_ACCESS_TOKEN": "${{ secrets.MAPBOX_ACCESS_TOKEN }}",
-            "OPEN_ROUTE_SERVICE_API_KEY": "${{ secrets.OPEN_ROUTE_SERVICE_API_KEY }}",
-            "ONESIGNAL_APP_ID": "${{ secrets.ONESIGNAL_APP_ID }}"
-          }
-          EOF
+          jq -n \
+            --arg supabase_url "$(printf '%s' "$SUPABASE_URL" | tr -d '\n\r')" \
+            --arg supabase_anon_key "$(printf '%s' "$SUPABASE_ANON_KEY" | tr -d '\n\r')" \
+            --arg mapbox_token "$(printf '%s' "$MAPBOX_ACCESS_TOKEN" | tr -d '\n\r')" \
+            --arg openroute_key "$(printf '%s' "$OPEN_ROUTE_SERVICE_API_KEY" | tr -d '\n\r')" \
+            --arg onesignal_id "$(printf '%s' "$ONESIGNAL_APP_ID" | tr -d '\n\r')" \
+            '{
+              "SUPABASE_URL": $supabase_url,
+              "SUPABASE_ANON_KEY": $supabase_anon_key,
+              "MAPBOX_ACCESS_TOKEN": $mapbox_token,
+              "OPEN_ROUTE_SERVICE_API_KEY": $openroute_key,
+              "ONESIGNAL_APP_ID": $onesignal_id
+            }' > "$ENV_FILE"
 
       - name: Build Android APK
         run: flutter build apk --release --dart-define-from-file="$ENV_FILE"
