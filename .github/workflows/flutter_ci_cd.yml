@@ -40,6 +40,8 @@ jobs:
     needs: analyze_and_test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: macos-latest # requis pour compiler la cible iOS
+    permissions:
+      contents: write # requis pour pousser le build web sur la branche gh-pages
     env:
       # Un seul fichier d'env généré à partir des secrets du repo, consommé par
       # tous les builds via --dart-define-from-file. Ajouter/mettre à jour les
@@ -121,7 +123,10 @@ jobs:
           retention-days: 7
 
       - name: Build Web App
-        run: flutter build web --release --dart-define-from-file="$ENV_FILE"
+        # --base-href matches this repo's GitHub Pages URL
+        # (https://<owner>.github.io/cleancity2-1/); without it, asset
+        # paths would resolve against "/" and fail to load on Pages.
+        run: flutter build web --release --base-href=/cleancity2-1/ --dart-define-from-file="$ENV_FILE"
 
       - name: Upload Web App
         uses: actions/upload-artifact@v4
@@ -129,3 +134,10 @@ jobs:
           name: cleancity-web-app
           path: build/web
           retention-days: 7
+
+      - name: Deploy web build to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: build/web
+          publish_branch: gh-pages
