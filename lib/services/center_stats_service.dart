@@ -213,37 +213,54 @@ class CenterStatsService {
   /// Pickups accepted for this center that haven't arrived yet (en route),
   /// including the assigned collector's contact info so the center knows who
   /// to expect.
+  /// Deliveries this center still needs to act on: en route (not yet
+  /// arrived) *and* arrived-but-not-yet-weighed — i.e. anything without a
+  /// `processing_events` row yet. Includes the collector's contact info so
+  /// the center always knows who to expect, even after the drop-off already
+  /// happened and it's just awaiting reception.
   Future<List<CenterExpectedDelivery>> getExpectedDeliveries({int limit = 3}) async {
     final uid = currentUserId;
     if (uid == null) return const [];
 
     try {
-      final rows = await _client
-          .from('pickups')
-          .select(
-              'request_id, accepted_at, users!pickups_collector_id_fkey(full_name, phone_e164), waste_requests(waste_type, status, quantity_estimate_kg, addresses(city, neighborhood))')
-          .eq('center_id', uid)
-          .filter('delivered_at', 'is', null)
-          .order('accepted_at', ascending: true)
-          .limit(limit);
+      final results = await Future.wait<dynamic>([
+        _client.from('processing_events').select('request_id').eq('center_id', uid),
+        _client
+            .from('pickups')
+            .select(
+                'request_id, accepted_at, delivered_at, users!pickups_collector_id_fkey(full_name, phone_e164), waste_requests(waste_type, status, quantity_estimate_kg, addresses(city, neighborhood))')
+            .eq('center_id', uid)
+            .order('accepted_at', ascending: true)
+            .limit(limit + 20),
+      ]);
 
-      return (rows as List).whereType<Map>().map((raw) {
-        final row = Map<String, dynamic>.from(raw);
-        final wr = row['waste_requests'] is Map ? Map<String, dynamic>.from(row['waste_requests'] as Map) : const <String, dynamic>{};
-        final address = wr['addresses'] is Map ? Map<String, dynamic>.from(wr['addresses'] as Map) : const <String, dynamic>{};
-        final collector = row['users'] is Map ? Map<String, dynamic>.from(row['users'] as Map) : const <String, dynamic>{};
-        return CenterExpectedDelivery(
-          requestId: (row['request_id'] ?? '').toString(),
-          wasteType: (wr['waste_type'] ?? 'mixed').toString(),
-          status: (wr['status'] ?? 'accepted').toString(),
-          quantityEstimateKg: _asDouble(wr['quantity_estimate_kg']),
-          city: (address['city'] ?? '').toString(),
-          neighborhood: (address['neighborhood'] ?? '').toString(),
-          acceptedAt: DateTime.tryParse('${row['accepted_at']}'),
-          collectorName: (collector['full_name'] ?? '').toString().trim().isEmpty ? null : collector['full_name'].toString().trim(),
-          collectorPhone: (collector['phone_e164'] ?? '').toString().trim().isEmpty ? null : collector['phone_e164'].toString().trim(),
-        );
-      }).toList(growable: false);
+      final processedIds = (results[0] as List)
+          .whereType<Map>()
+          .map((r) => (r['request_id'] ?? '').toString())
+          .toSet();
+
+      final rows = (results[1] as List).whereType<Map>().toList(growable: false);
+      return rows
+          .map((raw) {
+            final row = Map<String, dynamic>.from(raw);
+            final wr = row['waste_requests'] is Map ? Map<String, dynamic>.from(row['waste_requests'] as Map) : const <String, dynamic>{};
+            final address = wr['addresses'] is Map ? Map<String, dynamic>.from(wr['addresses'] as Map) : const <String, dynamic>{};
+            final collector = row['users'] is Map ? Map<String, dynamic>.from(row['users'] as Map) : const <String, dynamic>{};
+            return CenterExpectedDelivery(
+              requestId: (row['request_id'] ?? '').toString(),
+              wasteType: (wr['waste_type'] ?? 'mixed').toString(),
+              status: (wr['status'] ?? 'accepted').toString(),
+              quantityEstimateKg: _asDouble(wr['quantity_estimate_kg']),
+              city: (address['city'] ?? '').toString(),
+              neighborhood: (address['neighborhood'] ?? '').toString(),
+              acceptedAt: DateTime.tryParse('${row['accepted_at']}'),
+              collectorName: (collector['full_name'] ?? '').toString().trim().isEmpty ? null : collector['full_name'].toString().trim(),
+              collectorPhone: (collector['phone_e164'] ?? '').toString().trim().isEmpty ? null : collector['phone_e164'].toString().trim(),
+            );
+          })
+          .where((d) => d.requestId.isNotEmpty && !processedIds.contains(d.requestId))
+          .take(limit)
+          .toList(growable: false);
     } catch (e) {
       debugPrint('CenterStatsService.getExpectedDeliveries failed: $e');
       rethrow;

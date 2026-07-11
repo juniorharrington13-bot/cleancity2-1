@@ -1073,8 +1073,14 @@ class _ReceptionFormBodyState extends State<_ReceptionFormBody> {
       final generatorId = (map['generator_id'] ?? '').toString().trim();
       map['generator_id'] = generatorId;
       if (generatorId.isNotEmpty) {
-        final generator = await AppUserService().getProfile(generatorId);
-        map['generator_profile'] = generator?.toJson();
+        // Best-effort: the core mission data above already loaded fine, so a
+        // hiccup fetching this secondary profile shouldn't blank the screen.
+        try {
+          final generator = await AppUserService().getProfile(generatorId);
+          map['generator_profile'] = generator?.toJson();
+        } catch (e) {
+          debugPrint('Reception load: generator profile fetch failed: $e');
+        }
       }
 
       final pickups = (map['pickups'] as List?)?.cast<dynamic>();
@@ -1084,8 +1090,12 @@ class _ReceptionFormBodyState extends State<_ReceptionFormBody> {
       final collectorId = pickup0?['collector_id'] as String?;
       map['collector_id'] = collectorId;
       if (collectorId != null) {
-        final collector = await AppUserService().getProfile(collectorId);
-        map['collector_profile'] = collector?.toJson();
+        try {
+          final collector = await AppUserService().getProfile(collectorId);
+          map['collector_profile'] = collector?.toJson();
+        } catch (e) {
+          debugPrint('Reception load: collector profile fetch failed: $e');
+        }
       }
       return map;
     } catch (e) {
