@@ -1,9 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:cleancity/constants/waste_rates.dart';
 import 'package:cleancity/models/waste_request.dart';
-import 'package:cleancity/services/app_settings_service.dart';
 import 'package:cleancity/supabase/supabase_config.dart';
 
 class WasteRequestService {
@@ -453,12 +451,21 @@ class WasteRequestService {
     }
   }
 
-  /// Center validates a delivery reception, records a `processing_events` row and
-  /// credits the collector with a virtual payout.
+  /// Center validates a delivery reception: records a `processing_events` row
+  /// and, if accepted, pays the collector out of the center's wallet balance.
+  ///
+  /// Delegates to the `confirm_reception_and_payout` Postgres function so the
+  /// weigh-in, payout-rate lookup, wallet-balance check/debit and collector
+  /// credit all happen atomically and server-side (the payout amount is
+  /// computed by the database, not trusted from this client). Throws with a
+  /// message containing `INSUFFICIENT_BALANCE` if the center's wallet can't
+  /// cover the computed payout — callers should surface a "top up your
+  /// wallet" prompt for that case specifically.
   ///
   /// Payout is stored in `eco_transactions.points` (interpreted as XAF) with
-  /// `reason = 'payout'`.
-  Future<void> confirmReceptionAtCenter({
+  /// `reason = 'payout'`; the matching debit lands in
+  /// `center_wallet_transactions`.
+  Future<double> confirmReceptionAtCenter({
     required String requestId,
     required double weighedKg,
     bool accepted = true,
@@ -468,56 +475,14 @@ class WasteRequestService {
     if (centerId == null) throw StateError('Not authenticated');
 
     try {
-      // 1) Record processing event (idempotency: multiple receptions allowed, but payout only once).
-      await _client.from('processing_events').insert({
-        'request_id': requestId,
-        'center_id': centerId,
-        'weighed_kg': weighedKg,
-        'accepted': accepted,
-        'notes': notes,
+      final result = await _client.rpc('confirm_reception_and_payout', params: {
+        'p_request_id': requestId,
+        'p_weighed_kg': weighedKg,
+        'p_accepted': accepted,
+        'p_notes': notes,
       });
-
-      if (!accepted) return;
-
-      // 2) Find collector for this request (from pickups).
-      final pickup = await _client
-          .from('pickups')
-          .select('collector_id')
-          .eq('request_id', requestId)
-          .maybeSingle();
-      final collectorId =
-          pickup == null ? null : (pickup['collector_id'] as String?);
-      if (collectorId == null || collectorId.trim().isEmpty) return;
-
-      // 3) Prevent double payout for same request.
-      final existing = await _client
-          .from('eco_transactions')
-          .select('id')
-          .eq('user_id', collectorId)
-          .eq('request_id', requestId)
-          .eq('reason', 'payout')
-          .maybeSingle();
-      if (existing != null) return;
-
-      // 4) Compute payout by waste type.
-      final wr = await _client
-          .from('waste_requests')
-          .select('waste_type')
-          .eq('id', requestId)
-          .maybeSingle();
-      final wasteType = (wr?['waste_type'] ?? 'mixed').toString();
-
-      final rates = await AppSettingsService().getWasteRates();
-      final rate = rates[wasteType] ?? rates['mixed'] ?? wasteXafPerKg['mixed']!;
-      final amountXaf = (weighedKg * rate).round();
-
-      await _client.from('eco_transactions').insert({
-        'user_id': collectorId,
-        'request_id': requestId,
-        'points': amountXaf,
-        'reason': 'payout',
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      });
+      if (result is num) return result.toDouble();
+      return double.tryParse('$result') ?? 0;
     } catch (e) {
       debugPrint('WasteRequestService.confirmReceptionAtCenter failed: $e');
       rethrow;

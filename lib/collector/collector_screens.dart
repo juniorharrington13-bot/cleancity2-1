@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cleancity/components/cleancity_map_view.dart';
 import 'package:cleancity/components/mobile_money_withdraw_sheet.dart';
 import 'package:cleancity/components/center_picker_sheet.dart';
+import 'package:cleancity/components/notification_bell_button.dart';
 import 'package:cleancity/components/user_profile_tab.dart';
 import 'package:cleancity/chat/chat_screens.dart';
 import 'package:cleancity/components/app_error_handler.dart';
@@ -87,8 +88,7 @@ class _CollectorDashboardState extends State<CollectorDashboard> {
           ],
         ),
         actions: [
-          IconButton(
-              icon: const Icon(Icons.notifications_none), onPressed: () {}),
+          const NotificationBellButton(),
           const Padding(
             padding: EdgeInsets.only(right: 16.0),
             child: CircleAvatar(
@@ -1443,9 +1443,15 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    _future = widget.requestId == null
-        ? Future.value(null)
-        : WasteRequestService().getMissionForCollector(widget.requestId!);
+    _reload();
+  }
+
+  void _reload() {
+    setState(() {
+      _future = widget.requestId == null
+          ? Future.value(null)
+          : WasteRequestService().getMissionForCollector(widget.requestId!);
+    });
   }
 
   Future<void> _run(Future<void> Function() fn,
@@ -1457,11 +1463,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
     try {
       await fn();
       if (!mounted) return;
-      setState(() {
-        _future = widget.requestId == null
-            ? Future.value(null)
-            : WasteRequestService().getMissionForCollector(widget.requestId!);
-      });
+      _reload();
       final scheme = Theme.of(context).colorScheme;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1589,10 +1591,21 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text(
-                  context.l10n.collectorMissionLoadFailedRetry,
-                  style: context.textStyles.titleSmall,
-                  textAlign: TextAlign.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      context.l10n.collectorMissionLoadFailedRetry,
+                      style: context.textStyles.titleSmall,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: _reload,
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: Text(context.l10n.commonRetry),
+                    ),
+                  ],
                 ),
               ),
             );

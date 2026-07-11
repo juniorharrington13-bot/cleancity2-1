@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:cleancity/components/app_snackbars.dart';
+import 'package:cleancity/components/notification_bell_button.dart';
 import 'package:cleancity/components/user_profile_tab.dart';
+import 'package:cleancity/components/wallet_topup_sheet.dart';
 import 'package:cleancity/chat/chat_screens.dart';
+import 'package:cleancity/constants/waste_rates.dart';
 import 'package:cleancity/nav.dart';
+import 'package:cleancity/services/app_settings_service.dart';
 import 'package:cleancity/services/app_user_service.dart';
 import 'package:cleancity/services/center_stats_service.dart';
+import 'package:cleancity/services/center_wallet_service.dart';
 import 'package:cleancity/services/chat_service.dart';
 import 'package:cleancity/services/waste_request_service.dart';
 import 'package:cleancity/theme.dart';
@@ -83,8 +88,7 @@ class _CenterDashboardState extends State<CenterDashboard> {
           ],
         ),
         actions: [
-          IconButton(
-              icon: const Icon(Icons.notifications_none), onPressed: () {}),
+          const NotificationBellButton(),
           IconButton(icon: const Icon(Icons.search), onPressed: () {}),
         ],
       ),
@@ -119,9 +123,12 @@ class _CenterMainTab extends StatefulWidget {
 
 class _CenterMainTabState extends State<_CenterMainTab> {
   final CenterStatsService _statsService = CenterStatsService();
+  final CenterWalletService _walletService = CenterWalletService();
 
   late Future<CenterDashboardStats> _statsFuture;
   late Future<List<CenterExpectedDelivery>> _deliveriesFuture;
+  late Future<double> _walletBalanceFuture;
+  late Future<List<CenterWalletTransaction>> _walletTxFuture;
 
   @override
   void initState() {
@@ -133,7 +140,19 @@ class _CenterMainTabState extends State<_CenterMainTab> {
     setState(() {
       _statsFuture = _statsService.getDashboardStats();
       _deliveriesFuture = _statsService.getExpectedDeliveries();
+      _walletBalanceFuture = _walletService.getBalance();
+      _walletTxFuture = _walletService.listTransactions(limit: 10);
     });
+  }
+
+  Future<void> _openTopupSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: LightModeColors.lightSurface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+      builder: (_) => WalletTopupSheet(onSuccess: _refresh),
+    );
   }
 
   Color _colorForType(String type) {
@@ -253,6 +272,105 @@ class _CenterMainTabState extends State<_CenterMainTab> {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: AppSpacing.paddingMd,
+              decoration: BoxDecoration(
+                  color: LightModeColors.lightPrimaryContainer,
+                  borderRadius: BorderRadius.circular(16)),
+              child: Row(
+                children: [
+                  Icon(Icons.account_balance_wallet_outlined, color: LightModeColors.lightPrimary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(context.l10n.walletBalanceLabel,
+                            style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                        const SizedBox(height: 2),
+                        FutureBuilder<double>(
+                          future: _walletBalanceFuture,
+                          builder: (context, snap) {
+                            final loading = snap.connectionState == ConnectionState.waiting;
+                            final balance = snap.data;
+                            final text = loading || balance == null
+                                ? '—'
+                                : context.l10n.xafAmount(balance.toStringAsFixed(0));
+                            return Text(text,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18));
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  FilledButton.icon(
+                    onPressed: _openTopupSheet,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: Text(context.l10n.walletTopupButton),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(context.l10n.walletTransactionHistoryTitle,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            const SizedBox(height: 8),
+            FutureBuilder<List<CenterWalletTransaction>>(
+              future: _walletTxFuture,
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const LinearProgressIndicator();
+                }
+                final txs = snap.data ?? const <CenterWalletTransaction>[];
+                if (txs.isEmpty) {
+                  return Text(context.l10n.walletNoTransactions,
+                      style: const TextStyle(color: Colors.grey, fontSize: 12));
+                }
+                return Column(
+                  children: txs.map((t) {
+                    final isCredit = t.amountXaf >= 0;
+                    final label = t.type == 'topup'
+                        ? context.l10n.walletTxTypeTopup
+                        : t.type == 'payout_debit'
+                            ? context.l10n.walletTxTypePayout
+                            : context.l10n.walletTxTypeAdjustment;
+                    final reference = 'TXN-${t.id.length >= 8 ? t.id.substring(0, 8).toUpperCase() : t.id.toUpperCase()}';
+                    final date = t.createdAt?.toLocal();
+                    final dateStr = date == null
+                        ? '—'
+                        : '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Icon(isCredit ? Icons.arrow_downward : Icons.arrow_upward,
+                              size: 14, color: isCredit ? Colors.green : Colors.red),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                Text('$reference • $dateStr',
+                                    style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                          Text(
+                              '${isCredit ? '+' : ''}${t.amountXaf.toStringAsFixed(0)} XAF',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: isCredit ? Colors.green : Colors.red)),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
             const SizedBox(height: 32),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -302,8 +420,8 @@ class _CenterMainTabState extends State<_CenterMainTab> {
                   return const LinearProgressIndicator();
                 }
                 if (snap.hasError) {
-                  return Text(context.l10n.centerDeliveriesLoadFailed,
-                      style: const TextStyle(color: Colors.red));
+                  return _ErrorRetryCard(
+                      message: context.l10n.centerDeliveriesLoadFailed, onRetry: _refresh);
                 }
                 final deliveries = snap.data ?? const <CenterExpectedDelivery>[];
                 if (deliveries.isEmpty) {
@@ -331,6 +449,7 @@ class _CenterMainTabState extends State<_CenterMainTab> {
                               '${_statusLabel(context, d.status)} • ${d.quantityEstimateKg.toStringAsFixed(1)} kg${location.isEmpty ? '' : ' • $location'}',
                           time: context.l10n.commonOpen,
                           color: _colorForType(d.wasteType),
+                          collectorName: d.collectorName,
                         ),
                       ),
                     );
@@ -426,62 +545,16 @@ class _CenterDeliveriesTab extends StatefulWidget {
 }
 
 class _CenterDeliveriesTabState extends State<_CenterDeliveriesTab> {
-  late Future<List<Map<String, dynamic>>> _future;
+  final CenterStatsService _statsService = CenterStatsService();
+  late Future<List<CenterDeliveryRecord>> _future;
 
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    _future = _statsService.getCenterDeliveries();
   }
 
-  Future<List<Map<String, dynamic>>> _load() async {
-    try {
-      final client = Supabase.instance.client;
-      final uid = client.auth.currentUser?.id;
-      if (uid == null) return [];
-
-      // Preferred: show deliveries assigned to THIS center via pickups.center_id.
-      // If schema doesn't have that column yet, we fall back to the legacy query.
-      try {
-        final rows = await client
-            .from('pickups')
-            .select(
-                'id, request_id, collected_at, delivered_at, center_id, waste_requests(id, waste_type, status, created_at, quantity_estimate_kg, addresses(city, neighborhood))')
-            .eq('center_id', uid)
-            .order('delivered_at', ascending: false)
-            .limit(50);
-
-        final mapped = (rows as List)
-            .map((e) {
-              final m = Map<String, dynamic>.from(e as Map);
-              final wr = m['waste_requests'];
-              if (wr is Map) return Map<String, dynamic>.from(wr);
-              return <String, dynamic>{};
-            })
-            .where((e) => (e['id'] ?? '').toString().trim().isNotEmpty)
-            .toList();
-
-        return mapped;
-      } catch (e) {
-        debugPrint(
-            'Center deliveries preferred query failed (fallback to legacy): $e');
-      }
-
-      final rows = await client
-          .from('waste_requests')
-          .select(
-              'id, waste_type, status, created_at, quantity_estimate_kg, addresses(city, neighborhood)')
-          .inFilter('status', ['accepted', 'collected', 'delivered'])
-          .order('created_at', ascending: false)
-          .limit(50);
-      return (rows as List)
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList();
-    } catch (e) {
-      debugPrint('Center deliveries load failed: $e');
-      rethrow;
-    }
-  }
+  void _reload() => setState(() => _future = _statsService.getCenterDeliveries());
 
   Color _colorForType(String type) {
     switch (type) {
@@ -505,7 +578,7 @@ class _CenterDeliveriesTabState extends State<_CenterDeliveriesTab> {
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
-      onRefresh: () async => setState(() => _future = _load()),
+      onRefresh: () async => _reload(),
       child: ListView(
         padding: AppSpacing.paddingLg,
         children: [
@@ -516,21 +589,21 @@ class _CenterDeliveriesTabState extends State<_CenterDeliveriesTab> {
                   style: context.textStyles.titleLarge
                       ?.copyWith(fontWeight: FontWeight.bold)),
               IconButton(
-                  onPressed: () => setState(() => _future = _load()),
+                  onPressed: _reload,
                   icon:
                       Icon(Icons.refresh, color: LightModeColors.lightPrimary)),
             ],
           ),
           const SizedBox(height: 12),
-          FutureBuilder(
+          FutureBuilder<List<CenterDeliveryRecord>>(
             future: _future,
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting)
                 return const LinearProgressIndicator();
               if (snap.hasError)
-                return Text(context.l10n.centerDeliveriesLoadFailed,
-                    style: const TextStyle(color: Colors.red));
-              final rows = snap.data ?? const <Map<String, dynamic>>[];
+                return _ErrorRetryCard(
+                    message: context.l10n.centerDeliveriesLoadFailed, onRetry: _reload);
+              final rows = snap.data ?? const <CenterDeliveryRecord>[];
               if (rows.isEmpty) {
                 return _CenterEmptyStateCard(
                     icon: Icons.local_shipping_outlined,
@@ -539,32 +612,26 @@ class _CenterDeliveriesTabState extends State<_CenterDeliveriesTab> {
               }
               return Column(
                 children: rows.map((r) {
-                  final type = (r['waste_type'] ?? 'mixed').toString();
-                  final status = (r['status'] ?? '').toString();
-                  final addr = r['addresses'] as Map<String, dynamic>?;
-                  final city = (addr?['city'] ?? '').toString();
-                  final hood = (addr?['neighborhood'] ?? '').toString();
-                  final location =
-                      [hood, city].where((s) => s.trim().isNotEmpty).join(', ');
-                  final kg = (r['quantity_estimate_kg'] ?? '').toString();
-                  final color = _colorForType(type);
+                  final location = [r.neighborhood, r.city]
+                      .where((s) => s.trim().isNotEmpty)
+                      .join(', ');
+                  final color = _colorForType(r.wasteType);
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(12),
                       onTap: () {
-                        final id = (r['id'] ?? '').toString();
-                        if (id.trim().isEmpty) return;
-                        context.push(AppRoutes.receptionForm, extra: id);
+                        if (r.requestId.trim().isEmpty) return;
+                        context.push(AppRoutes.receptionForm, extra: r.requestId);
                       },
                       child: _DeliveryCard(
-                        truck:
-                            'REQ-${(r['id'] ?? '').toString().substring(0, 6).toUpperCase()}',
-                        type: type.toUpperCase(),
+                        truck: 'REQ-${r.requestId.substring(0, 6).toUpperCase()}',
+                        type: r.wasteType.toUpperCase(),
                         status:
-                            '${_statusLabel(context, status)} • $kg kg • ${location.isEmpty ? '—' : location}',
+                            '${_statusLabel(context, r.status)} • ${r.quantityEstimateKg.toStringAsFixed(1)} kg • ${location.isEmpty ? '—' : location}',
                         time: context.l10n.commonOpen,
                         color: color,
+                        collectorName: r.collectorName,
                       ),
                     ),
                   );
@@ -587,44 +654,21 @@ class _CenterStocksTab extends StatefulWidget {
 }
 
 class _CenterStocksTabState extends State<_CenterStocksTab> {
-  late Future<List<Map<String, dynamic>>> _future;
+  final CenterStatsService _statsService = CenterStatsService();
+  late Future<List<CenterStockEntry>> _future;
 
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    _future = _statsService.getCenterStockSummary();
   }
 
-  Future<List<Map<String, dynamic>>> _load() async {
-    try {
-      final client = Supabase.instance.client;
-      final uid = client.auth.currentUser?.id;
-      if (uid == null) return [];
-      final rows = await client
-          .from('processing_events')
-          .select(
-              'id, weighed_kg, created_at, request_id, waste_requests(waste_type)')
-          .eq('center_id', uid)
-          .order('created_at', ascending: false)
-          .limit(200);
-      return (rows as List)
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList();
-    } catch (e) {
-      debugPrint('Center stocks load failed: $e');
-      rethrow;
-    }
-  }
+  void _reload() => setState(() => _future = _statsService.getCenterStockSummary());
 
-  Map<String, double> _sumByType(List<Map<String, dynamic>> rows) {
+  Map<String, double> _sumByType(List<CenterStockEntry> rows) {
     final out = <String, double>{};
     for (final r in rows) {
-      final kgRaw = r['weighed_kg'];
-      final kg =
-          kgRaw is num ? kgRaw.toDouble() : double.tryParse('$kgRaw') ?? 0;
-      final wr = r['waste_requests'] as Map<String, dynamic>?;
-      final type = (wr?['waste_type'] ?? 'mixed').toString();
-      out[type] = (out[type] ?? 0) + kg;
+      out[r.wasteType] = (out[r.wasteType] ?? 0) + r.weighedKg;
     }
     return out;
   }
@@ -632,7 +676,7 @@ class _CenterStocksTabState extends State<_CenterStocksTab> {
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
-      onRefresh: () async => setState(() => _future = _load()),
+      onRefresh: () async => _reload(),
       child: ListView(
         padding: AppSpacing.paddingLg,
         children: [
@@ -643,21 +687,21 @@ class _CenterStocksTabState extends State<_CenterStocksTab> {
                   style: context.textStyles.titleLarge
                       ?.copyWith(fontWeight: FontWeight.bold)),
               IconButton(
-                  onPressed: () => setState(() => _future = _load()),
+                  onPressed: _reload,
                   icon:
                       Icon(Icons.refresh, color: LightModeColors.lightPrimary)),
             ],
           ),
           const SizedBox(height: 12),
-          FutureBuilder(
+          FutureBuilder<List<CenterStockEntry>>(
             future: _future,
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting)
                 return const LinearProgressIndicator();
               if (snap.hasError)
-                return Text(context.l10n.centerStocksLoadFailed,
-                    style: const TextStyle(color: Colors.red));
-              final rows = snap.data ?? const <Map<String, dynamic>>[];
+                return _ErrorRetryCard(
+                    message: context.l10n.centerStocksLoadFailed, onRetry: _reload);
+              final rows = snap.data ?? const <CenterStockEntry>[];
               if (rows.isEmpty) {
                 return _CenterEmptyStateCard(
                     icon: Icons.inventory_2_outlined,
@@ -777,12 +821,14 @@ class _DeliveryCard extends StatelessWidget {
       required this.type,
       required this.status,
       required this.time,
-      required this.color});
+      required this.color,
+      this.collectorName});
   final String truck;
   final String type;
   final String status;
   final String time;
   final Color color;
+  final String? collectorName;
 
   @override
   Widget build(BuildContext context) {
@@ -823,10 +869,55 @@ class _DeliveryCard extends StatelessWidget {
                     child: Text(status,
                         style:
                             const TextStyle(fontSize: 10, color: Colors.grey))),
-              ])
+              ]),
+              if (collectorName != null && collectorName!.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Row(children: [
+                  const Icon(Icons.person_outline, size: 12, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Expanded(
+                      child: Text(collectorName!,
+                          style: const TextStyle(fontSize: 10, color: Colors.black87, fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis)),
+                ]),
+              ],
             ]),
           ),
           Text(time, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorRetryCard extends StatelessWidget {
+  const _ErrorRetryCard({required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: AppSpacing.paddingLg,
+      decoration: BoxDecoration(
+          color: Colors.red.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(color: Colors.red.withValues(alpha: 0.2))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 20),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message, style: const TextStyle(color: Colors.red))),
+          ]),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh, size: 16),
+            label: Text(context.l10n.commonRetry),
+          ),
         ],
       ),
     );
@@ -909,8 +1000,7 @@ class ReceptionFormScreen extends StatelessWidget {
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
-          IconButton(
-              icon: const Icon(Icons.notifications_none), onPressed: () {}),
+          const NotificationBellButton(),
         ],
       ),
       body: _ReceptionFormBody(requestId: id),
@@ -944,11 +1034,20 @@ class _ReceptionFormBodyState extends State<_ReceptionFormBody> {
   final _kgController = TextEditingController();
   bool _loading = false;
   late Future<Map<String, dynamic>?> _future;
+  late Future<Map<String, int>> _ratesFuture;
+  late Future<double> _walletBalanceFuture;
+  double _estimatedKg = 0;
 
   @override
   void initState() {
     super.initState();
     _future = _load();
+    _ratesFuture = AppSettingsService().getWasteRates();
+    _walletBalanceFuture = CenterWalletService().getBalance();
+    _kgController.addListener(() {
+      final kg = _parseKg();
+      if (kg != _estimatedKg) setState(() => _estimatedKg = kg);
+    });
   }
 
   @override
@@ -1000,6 +1099,17 @@ class _ReceptionFormBodyState extends State<_ReceptionFormBody> {
     return double.tryParse(raw) ?? 0;
   }
 
+  Future<void> _openTopupSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: LightModeColors.lightSurface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+      builder: (_) => WalletTopupSheet(
+          onSuccess: () => setState(() => _walletBalanceFuture = CenterWalletService().getBalance())),
+    );
+  }
+
   Future<void> _confirm() async {
     final id = widget.requestId;
     if (id == null || id.trim().isEmpty) return;
@@ -1010,15 +1120,23 @@ class _ReceptionFormBodyState extends State<_ReceptionFormBody> {
     }
     setState(() => _loading = true);
     try {
-      await WasteRequestService().confirmReceptionAtCenter(
-          requestId: id, weighedKg: kg, accepted: true);
+      final paid = await WasteRequestService()
+          .confirmReceptionAtCenter(requestId: id, weighedKg: kg, accepted: true);
       if (!mounted) return;
-      AppSnackbars.success(context, context.l10n.centerPaymentAcceptedMessage);
+      final reference = 'PAY-${id.substring(0, 8).toUpperCase()}';
+      AppSnackbars.success(context,
+          context.l10n.centerPaymentAcceptedAmount(paid.toStringAsFixed(0), reference));
       context.pop();
     } catch (e) {
       debugPrint('Confirm reception failed: $e');
       if (!mounted) return;
-      AppSnackbars.error(context, context.l10n.centerConfirmationFailed);
+      if (e.toString().contains('INSUFFICIENT_BALANCE')) {
+        AppSnackbars.error(context, context.l10n.walletInsufficientBalance);
+        await _openTopupSheet();
+        if (mounted) setState(() => _walletBalanceFuture = CenterWalletService().getBalance());
+      } else {
+        AppSnackbars.error(context, context.l10n.centerConfirmationFailed);
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -1034,8 +1152,9 @@ class _ReceptionFormBodyState extends State<_ReceptionFormBody> {
           if (snap.connectionState == ConnectionState.waiting)
             return const LinearProgressIndicator();
           if (snap.hasError)
-            return Text(context.l10n.centerMissionLoadFailed,
-                style: const TextStyle(color: Colors.red));
+            return _ErrorRetryCard(
+                message: context.l10n.centerMissionLoadFailed,
+                onRetry: () => setState(() => _future = _load()));
           final data = snap.data;
           if (data == null) {
             return _CenterEmptyStateCard(
@@ -1243,6 +1362,60 @@ class _ReceptionFormBodyState extends State<_ReceptionFormBody> {
                       context.l10n.centerEstimatedWeightNote(estKg.toStringAsFixed(1)),
                       style:
                           const TextStyle(color: Colors.grey, fontSize: 10))),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: AppSpacing.paddingMd,
+                decoration: BoxDecoration(
+                    color: LightModeColors.lightSurface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: LightModeColors.lightSurfaceVariant)),
+                child: FutureBuilder<Map<String, int>>(
+                  future: _ratesFuture,
+                  builder: (context, ratesSnap) {
+                    final rates = ratesSnap.data;
+                    final rate = rates == null
+                        ? null
+                        : (rates[wasteType] ?? rates['mixed'] ?? wasteXafPerKg['mixed']!);
+                    final estimatedPayout = rate == null ? null : _estimatedKg * rate;
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(context.l10n.centerEstimatedPayoutLabel,
+                                style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                            const SizedBox(height: 2),
+                            Text(
+                                estimatedPayout == null
+                                    ? '—'
+                                    : context.l10n.xafAmount(estimatedPayout.toStringAsFixed(0)),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          ],
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(context.l10n.walletBalanceLabel,
+                                style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                            const SizedBox(height: 2),
+                            FutureBuilder<double>(
+                              future: _walletBalanceFuture,
+                              builder: (context, balSnap) {
+                                final balance = balSnap.data;
+                                return Text(
+                                    balance == null ? '—' : context.l10n.xafAmount(balance.toStringAsFixed(0)),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14));
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,

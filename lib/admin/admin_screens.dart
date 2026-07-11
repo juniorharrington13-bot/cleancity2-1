@@ -5,11 +5,14 @@ import 'package:cleancity/nav.dart';
 import 'package:cleancity/models/app_user.dart';
 import 'package:cleancity/components/app_error_handler.dart';
 import 'package:cleancity/components/app_snackbars.dart';
+import 'package:cleancity/components/notification_bell_button.dart';
 import 'package:cleancity/components/user_profile_tab.dart';
 import 'package:cleancity/services/app_settings_service.dart';
 import 'package:cleancity/services/app_user_service.dart';
 import 'package:cleancity/services/admin_stats_service.dart';
+import 'package:cleancity/services/center_wallet_service.dart';
 import 'package:cleancity/services/payout_request_service.dart';
+import 'package:cleancity/models/center_wallet_topup.dart';
 import 'package:cleancity/models/payout_request.dart';
 import 'package:cleancity/constants/waste_rates.dart';
 import '../theme.dart';
@@ -195,8 +198,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   icon: const Icon(Icons.search),
                   onPressed: () {},
                 ),
-              IconButton(
-                  icon: const Icon(Icons.notifications_none), onPressed: () {}),
+              const NotificationBellButton(),
               const SizedBox(width: 8),
               if (showAdminLabel)
                 const Column(
@@ -1261,6 +1263,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
   final _statsService = AdminStatsService();
   final _payoutService = PayoutRequestService();
+  final _walletService = CenterWalletService();
 
   DateTimeRange? _range;
   String? _city;
@@ -1271,7 +1274,9 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   late Future<List<AdminOperationRecord>> _opsFuture;
   late Future<AdminFinancialSummary> _financialFuture;
   late Future<List<PayoutRequest>> _payoutRequestsFuture;
+  late Future<List<CenterWalletTopup>> _walletTopupsFuture;
   String _payoutStatusFilter = 'pending';
+  String _walletTopupStatusFilter = 'pending';
 
   @override
   void initState() {
@@ -1279,6 +1284,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     _citiesFuture = _statsService.listDistinctCities();
     _reload();
     _reloadPayoutRequests();
+    _reloadWalletTopups();
   }
 
   void _reload() {
@@ -1298,6 +1304,24 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     setState(() {
       _payoutRequestsFuture = _payoutService.listAll(status: _payoutStatusFilter.isEmpty ? null : _payoutStatusFilter);
     });
+  }
+
+  void _reloadWalletTopups() {
+    setState(() {
+      _walletTopupsFuture = _walletService.listAllTopups(status: _walletTopupStatusFilter.isEmpty ? null : _walletTopupStatusFilter);
+    });
+  }
+
+  Future<void> _actOnTopup(CenterWalletTopup topup, bool approve) async {
+    try {
+      await _walletService.confirmTopup(id: topup.id, approve: approve);
+      if (!mounted) return;
+      AppSnackbars.success(context, context.l10n.adminReportsPayoutUpdated);
+      _reloadWalletTopups();
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackbars.error(context, context.l10n.adminReportsPayoutUpdateFailed);
+    }
   }
 
   Future<void> _pickRange() async {
@@ -1454,7 +1478,20 @@ class _AdminReportsViewState extends State<AdminReportsView> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snap.hasError) {
-          return Center(child: Text(context.l10n.centerDeliveriesLoadFailed, style: const TextStyle(color: Colors.red)));
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(context.l10n.adminOperationsLoadFailed, style: const TextStyle(color: Colors.red)),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _reload,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: Text(context.l10n.commonRetry),
+                ),
+              ],
+            ),
+          );
         }
         final rows = snap.data ?? const <AdminOperationRecord>[];
         final totalKg = rows.fold<double>(0, (a, r) => a + r.quantityEstimateKg);
@@ -1532,7 +1569,20 @@ class _AdminReportsViewState extends State<AdminReportsView> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snap.hasError) {
-          return Center(child: Text(context.l10n.centerDeliveriesLoadFailed, style: const TextStyle(color: Colors.red)));
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(context.l10n.adminOperationsLoadFailed, style: const TextStyle(color: Colors.red)),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _reload,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: Text(context.l10n.commonRetry),
+                ),
+              ],
+            ),
+          );
         }
         final rows = snap.data ?? const <AdminOperationRecord>[];
         if (rows.isEmpty) {
@@ -1660,7 +1710,18 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snap.hasError) {
-                return Text(context.l10n.centerDeliveriesLoadFailed, style: const TextStyle(color: Colors.red));
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(context.l10n.adminFinancialSummaryLoadFailed, style: const TextStyle(color: Colors.red)),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: _reload,
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: Text(context.l10n.commonRetry),
+                    ),
+                  ],
+                );
               }
               final summary = snap.data;
               if (summary == null) return const SizedBox.shrink();
@@ -1740,7 +1801,18 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                 return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()));
               }
               if (snap.hasError) {
-                return Text(context.l10n.centerDeliveriesLoadFailed, style: const TextStyle(color: Colors.red));
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(context.l10n.adminPayoutRequestsLoadFailed, style: const TextStyle(color: Colors.red)),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: _reloadPayoutRequests,
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: Text(context.l10n.commonRetry),
+                    ),
+                  ],
+                );
               }
               final reqs = snap.data ?? const <PayoutRequest>[];
               if (reqs.isEmpty) return Text(context.l10n.adminReportsNoResults);
@@ -1775,6 +1847,91 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                           ),
                         ] else
                           Chip(label: Text(r.status.toUpperCase())),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+          const SizedBox(height: 32),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(context.l10n.adminWalletTopupsTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              DropdownButton<String>(
+                value: _walletTopupStatusFilter,
+                items: [
+                  DropdownMenuItem(value: 'pending', child: Text(context.l10n.adminReportsPayoutPending)),
+                  DropdownMenuItem(value: 'confirmed', child: Text(context.l10n.adminWalletTopupConfirmed)),
+                  DropdownMenuItem(value: 'rejected', child: Text(context.l10n.adminReportsPayoutRejected)),
+                ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  setState(() => _walletTopupStatusFilter = v);
+                  _reloadWalletTopups();
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          FutureBuilder<List<CenterWalletTopup>>(
+            future: _walletTopupsFuture,
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()));
+              }
+              if (snap.hasError) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(context.l10n.adminPayoutRequestsLoadFailed, style: const TextStyle(color: Colors.red)),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: _reloadWalletTopups,
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: Text(context.l10n.commonRetry),
+                    ),
+                  ],
+                );
+              }
+              final topups = snap.data ?? const <CenterWalletTopup>[];
+              if (topups.isEmpty) return Text(context.l10n.adminReportsNoResults);
+              return Column(
+                children: topups.map((t) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration:
+                        BoxDecoration(border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(12)),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('${_formatNumber(t.amountXaf)} XAF • ${t.provider.toUpperCase()}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 2),
+                              Text(t.phone, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                              if ((t.reference ?? '').trim().isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(t.reference!, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (t.status == 'pending') ...[
+                          TextButton(
+                            onPressed: () => _actOnTopup(t, false),
+                            child: Text(context.l10n.adminReportsPayoutRejected, style: const TextStyle(color: Colors.red)),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => _actOnTopup(t, true),
+                            child: Text(context.l10n.adminWalletTopupConfirmButton),
+                          ),
+                        ] else
+                          Chip(label: Text(t.status.toUpperCase())),
                       ],
                     ),
                   );

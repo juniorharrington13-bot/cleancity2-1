@@ -40,6 +40,8 @@ class CenterExpectedDelivery {
     required this.city,
     required this.neighborhood,
     required this.acceptedAt,
+    this.collectorName,
+    this.collectorPhone,
   });
 
   final String requestId;
@@ -49,6 +51,41 @@ class CenterExpectedDelivery {
   final String city;
   final String neighborhood;
   final DateTime? acceptedAt;
+  final String? collectorName;
+  final String? collectorPhone;
+}
+
+@immutable
+class CenterDeliveryRecord {
+  const CenterDeliveryRecord({
+    required this.requestId,
+    required this.wasteType,
+    required this.status,
+    required this.quantityEstimateKg,
+    required this.city,
+    required this.neighborhood,
+    required this.collectorName,
+    required this.collectorPhone,
+    required this.deliveredAt,
+  });
+
+  final String requestId;
+  final String wasteType;
+  final String status;
+  final double quantityEstimateKg;
+  final String city;
+  final String neighborhood;
+  final String? collectorName;
+  final String? collectorPhone;
+  final DateTime? deliveredAt;
+}
+
+@immutable
+class CenterStockEntry {
+  const CenterStockEntry({required this.wasteType, required this.weighedKg});
+
+  final String wasteType;
+  final double weighedKg;
 }
 
 @immutable
@@ -173,7 +210,9 @@ class CenterStatsService {
     }
   }
 
-  /// Pickups accepted for this center that haven't arrived yet (en route).
+  /// Pickups accepted for this center that haven't arrived yet (en route),
+  /// including the assigned collector's contact info so the center knows who
+  /// to expect.
   Future<List<CenterExpectedDelivery>> getExpectedDeliveries({int limit = 3}) async {
     final uid = currentUserId;
     if (uid == null) return const [];
@@ -182,7 +221,7 @@ class CenterStatsService {
       final rows = await _client
           .from('pickups')
           .select(
-              'request_id, accepted_at, waste_requests(waste_type, status, quantity_estimate_kg, addresses(city, neighborhood))')
+              'request_id, accepted_at, users!pickups_collector_id_fkey(full_name, phone_e164), waste_requests(waste_type, status, quantity_estimate_kg, addresses(city, neighborhood))')
           .eq('center_id', uid)
           .filter('delivered_at', 'is', null)
           .order('accepted_at', ascending: true)
@@ -192,6 +231,7 @@ class CenterStatsService {
         final row = Map<String, dynamic>.from(raw);
         final wr = row['waste_requests'] is Map ? Map<String, dynamic>.from(row['waste_requests'] as Map) : const <String, dynamic>{};
         final address = wr['addresses'] is Map ? Map<String, dynamic>.from(wr['addresses'] as Map) : const <String, dynamic>{};
+        final collector = row['users'] is Map ? Map<String, dynamic>.from(row['users'] as Map) : const <String, dynamic>{};
         return CenterExpectedDelivery(
           requestId: (row['request_id'] ?? '').toString(),
           wasteType: (wr['waste_type'] ?? 'mixed').toString(),
@@ -200,10 +240,79 @@ class CenterStatsService {
           city: (address['city'] ?? '').toString(),
           neighborhood: (address['neighborhood'] ?? '').toString(),
           acceptedAt: DateTime.tryParse('${row['accepted_at']}'),
+          collectorName: (collector['full_name'] ?? '').toString().trim().isEmpty ? null : collector['full_name'].toString().trim(),
+          collectorPhone: (collector['phone_e164'] ?? '').toString().trim().isEmpty ? null : collector['phone_e164'].toString().trim(),
         );
       }).toList(growable: false);
     } catch (e) {
       debugPrint('CenterStatsService.getExpectedDeliveries failed: $e');
+      rethrow;
+    }
+  }
+
+  /// All pickups assigned to this center regardless of delivery status
+  /// (accepted/collected/delivered), with the collector's contact info.
+  /// Backs the center's "Livraisons" tab.
+  Future<List<CenterDeliveryRecord>> getCenterDeliveries({int limit = 50}) async {
+    final uid = currentUserId;
+    if (uid == null) return const [];
+
+    try {
+      final rows = await _client
+          .from('pickups')
+          .select(
+              'request_id, delivered_at, users!pickups_collector_id_fkey(full_name, phone_e164), waste_requests(waste_type, status, quantity_estimate_kg, addresses(city, neighborhood))')
+          .eq('center_id', uid)
+          .order('accepted_at', ascending: false)
+          .limit(limit);
+
+      return (rows as List).whereType<Map>().map((raw) {
+        final row = Map<String, dynamic>.from(raw);
+        final wr = row['waste_requests'] is Map ? Map<String, dynamic>.from(row['waste_requests'] as Map) : const <String, dynamic>{};
+        final address = wr['addresses'] is Map ? Map<String, dynamic>.from(wr['addresses'] as Map) : const <String, dynamic>{};
+        final collector = row['users'] is Map ? Map<String, dynamic>.from(row['users'] as Map) : const <String, dynamic>{};
+        return CenterDeliveryRecord(
+          requestId: (row['request_id'] ?? '').toString(),
+          wasteType: (wr['waste_type'] ?? 'mixed').toString(),
+          status: (wr['status'] ?? 'accepted').toString(),
+          quantityEstimateKg: _asDouble(wr['quantity_estimate_kg']),
+          city: (address['city'] ?? '').toString(),
+          neighborhood: (address['neighborhood'] ?? '').toString(),
+          collectorName: (collector['full_name'] ?? '').toString().trim().isEmpty ? null : collector['full_name'].toString().trim(),
+          collectorPhone: (collector['phone_e164'] ?? '').toString().trim().isEmpty ? null : collector['phone_e164'].toString().trim(),
+          deliveredAt: DateTime.tryParse('${row['delivered_at']}'),
+        );
+      }).where((d) => d.requestId.isNotEmpty).toList(growable: false);
+    } catch (e) {
+      debugPrint('CenterStatsService.getCenterDeliveries failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Weighed-in stock for this center, grouped by waste type. Backs the
+  /// center's "Stocks" tab.
+  Future<List<CenterStockEntry>> getCenterStockSummary({int limit = 200}) async {
+    final uid = currentUserId;
+    if (uid == null) return const [];
+
+    try {
+      final rows = await _client
+          .from('processing_events')
+          .select('weighed_kg, created_at, waste_requests(waste_type)')
+          .eq('center_id', uid)
+          .order('created_at', ascending: false)
+          .limit(limit);
+
+      return (rows as List).whereType<Map>().map((raw) {
+        final row = Map<String, dynamic>.from(raw);
+        final wr = row['waste_requests'] is Map ? Map<String, dynamic>.from(row['waste_requests'] as Map) : const <String, dynamic>{};
+        return CenterStockEntry(
+          wasteType: (wr['waste_type'] ?? 'mixed').toString(),
+          weighedKg: _asDouble(row['weighed_kg']),
+        );
+      }).toList(growable: false);
+    } catch (e) {
+      debugPrint('CenterStatsService.getCenterStockSummary failed: $e');
       rethrow;
     }
   }

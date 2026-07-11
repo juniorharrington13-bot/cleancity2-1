@@ -10,6 +10,7 @@ import 'collector/collector_screens.dart';
 import 'center/center_screens.dart';
 import 'admin/admin_screens.dart';
 import 'chat/chat_screens.dart';
+import 'notifications/notifications_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
@@ -29,6 +30,8 @@ class AppRoutes {
   static const String receptionForm = '/center/reception';
 
   static const String adminDashboard = '/admin';
+
+  static const String notifications = '/notifications';
 
   // Chat
   static const String chatThreads = ChatRoutes.threads;
@@ -113,6 +116,10 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.adminDashboard,
         builder: (context, state) => const AdminDashboard(),
+      ),
+      GoRoute(
+        path: AppRoutes.notifications,
+        builder: (context, state) => const NotificationsScreen(),
       ),
 
       GoRoute(

@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cleancity/components/app_error_handler.dart';
 import 'package:cleancity/components/app_snackbars.dart';
 import 'package:cleancity/components/cleancity_map_view.dart';
+import 'package:cleancity/components/notification_bell_button.dart';
 import 'package:cleancity/components/user_profile_tab.dart';
 import 'package:cleancity/chat/chat_screens.dart';
 import 'package:cleancity/models/waste_request.dart';
@@ -17,7 +18,6 @@ import 'package:cleancity/services/app_user_service.dart';
 import 'package:cleancity/services/waste_request_service.dart';
 import 'package:cleancity/services/media_upload_service.dart';
 import 'package:cleancity/services/maps_service.dart';
-import 'package:cleancity/services/push_notification_service.dart';
 import 'package:cleancity/services/chat_service.dart';
 import 'package:cleancity/theme.dart';
 
@@ -88,19 +88,7 @@ class _GeneratorDashboardState extends State<GeneratorDashboard> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none),
-            tooltip: context.l10n.generatorNotificationsTooltip,
-            onPressed: () async {
-              final ok = await PushNotificationService.requestPermission();
-              if (!context.mounted) return;
-              if (ok) {
-                AppSnackbars.success(context, context.l10n.generatorNotificationsEnabled);
-              } else {
-                AppSnackbars.warning(context, context.l10n.generatorNotificationsDenied);
-              }
-            },
-          ),
+          const NotificationBellButton(),
         ],
       ),
       body: IndexedStack(index: _index, children: pages),
