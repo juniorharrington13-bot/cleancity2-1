@@ -122,7 +122,7 @@ jobs:
 
       - name: Build Web App
         # Served from the root of a pages.dev (sub)domain, unlike GitHub
-        # Pages' /cleancity2-1/ subpath, so base-href is just "/".
+        # Pages' /cleancity/ subpath, so base-href is just "/".
         run: flutter build web --release --base-href=/ --dart-define-from-file="$ENV_FILE"
 
       - name: Upload Web App
@@ -140,7 +140,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_TOKEN_API }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT }}
-        run: npx wrangler@3 pages project create cleancity2-1 --production-branch=main || true
+        run: npx wrangler@3 pages project create cleancity --production-branch=main || true
 
       - name: Deploy web build to Cloudflare Pages
         # GitHub Pages (Fastly-backed) turned out to be unreachable from the
@@ -151,4 +151,4 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_TOKEN_API }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT }}
-        run: npx wrangler@3 pages deploy build/web --project-name=cleancity2-1 --commit-dirty=true
+        run: npx wrangler@3 pages deploy build/web --project-name=cleancity --commit-dirty=true
