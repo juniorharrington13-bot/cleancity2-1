@@ -40,6 +40,8 @@ jobs:
     needs: analyze_and_test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: macos-latest # requis pour compiler la cible iOS
+    permissions:
+      contents: write # requis pour publier la GitHub Release des artefacts mobiles
     env:
       # Un seul fichier d'env généré à partir des secrets du repo, consommé par
       # tous les builds via --dart-define-from-file. Ajouter/mettre à jour les
@@ -132,19 +134,29 @@ jobs:
           path: build/web
           retention-days: 7
 
-      - name: Publish mobile artifacts alongside the web build
-        # Makes the APK/IPA built above downloadable from
-        # cleancity.pages.dev/download.html instead of only as a
-        # GitHub Actions artifact (which requires a GitHub login and
-        # expires after 7 days).
+      - name: Publish mobile builds to a GitHub Release
+        # Cloudflare Pages rejects any deployed file over 25 MiB, and the
+        # APK alone is ~60 MiB, so the binaries can't live inside the Pages
+        # deploy (build/web). GitHub Releases has no such limit, so the APK/
+        # IPA are published under a fixed "latest" tag instead, and
+        # download.html links straight to those stable release URLs. Only
+        # a small version.json goes into build/web, for the version label.
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p build/web/downloads
-          cp build/app/outputs/flutter-apk/app-release.apk build/web/downloads/CleanCity.apk
-          cp build/ios/CleanCity-unsigned.ipa build/web/downloads/CleanCity-unsigned.ipa
-          jq -n --arg version "$(grep '^version:' pubspec.yaml | cut -d' ' -f2)" \
+          VERSION="$(grep '^version:' pubspec.yaml | cut -d' ' -f2)"
+          jq -n --arg version "$VERSION" \
                 --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
                 '{version: $version, builtAt: $builtAt}' \
                 > build/web/downloads/version.json
+
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest \
+            --title "CleanCity $VERSION (dernière build)" \
+            --notes "Build automatique depuis main — APK Android et IPA iOS non signé pour installation directe." \
+            build/app/outputs/flutter-apk/app-release.apk#CleanCity.apk \
+            build/ios/CleanCity-unsigned.ipa#CleanCity-unsigned.ipa
 
       - name: Ensure Cloudflare Pages project exists
         # `wrangler pages deploy` refuses to auto-create the project in
