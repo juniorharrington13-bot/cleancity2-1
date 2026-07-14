@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Téléchargez l'application mobile CleanCity Cameroun (APK Android) et installez-la sur votre téléphone.">
+  <link rel="canonical" href="https://cleancity.pages.dev/download.html">
+  <link rel="icon" type="image/png" href="favicon.png"/>
+  <title>Télécharger CleanCity — Application mobile</title>
+  <style>
+    :root {
+      --cc-green-dark: #1B5E20;
+      --cc-green-light: #C8E6C9;
+      --cc-bg: #F5F6F5;
+      --cc-card: #FFFFFF;
+      --cc-text: #1B2B1C;
+      --cc-muted: #5A6B5C;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --cc-bg: #0F1A10;
+        --cc-card: #17251A;
+        --cc-text: #EAF2EA;
+        --cc-muted: #9FB3A2;
+        --cc-green-light: #2E4B31;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: var(--cc-bg);
+      color: var(--cc-text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 32px 16px 48px;
+    }
+    .cc-wrap { width: 100%; max-width: 480px; }
+    .cc-logo {
+      display: block;
+      margin: 0 auto 20px;
+      width: 88px;
+      height: 88px;
+      border-radius: 20px;
+      box-shadow: 0 6px 20px rgba(27, 94, 32, 0.25);
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.6rem;
+      margin: 0 0 8px;
+      color: var(--cc-green-dark);
+    }
+    .cc-sub {
+      text-align: center;
+      color: var(--cc-muted);
+      margin: 0 0 28px;
+      font-size: 0.98rem;
+      line-height: 1.4;
+    }
+    .cc-card {
+      background: var(--cc-card);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+    .cc-card h2 {
+      margin: 0 0 6px;
+      font-size: 1.05rem;
+      color: var(--cc-text);
+    }
+    .cc-meta {
+      color: var(--cc-muted);
+      font-size: 0.85rem;
+      margin: 0 0 16px;
+    }
+    .cc-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 14px 20px;
+      border-radius: 12px;
+      background: var(--cc-green-dark);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1rem;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.15s ease;
+    }
+    .cc-btn:hover { opacity: 0.9; }
+    .cc-btn.secondary {
+      background: transparent;
+      color: var(--cc-green-dark);
+      border: 1.5px solid var(--cc-green-light);
+    }
+    @media (prefers-color-scheme: dark) {
+      .cc-btn.secondary { color: var(--cc-green-light); }
+    }
+    .cc-steps {
+      margin: 16px 0 0;
+      padding-left: 20px;
+      color: var(--cc-muted);
+      font-size: 0.9rem;
+      line-height: 1.7;
+    }
+    details {
+      margin-top: 4px;
+    }
+    summary {
+      cursor: pointer;
+      color: var(--cc-green-dark);
+      font-weight: 600;
+      font-size: 0.95rem;
+      list-style: none;
+    }
+    @media (prefers-color-scheme: dark) {
+      summary { color: var(--cc-green-light); }
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::before {
+      content: "▸ ";
+    }
+    details[open] summary::before {
+      content: "▾ ";
+    }
+    .cc-warning {
+      background: var(--cc-green-light);
+      color: var(--cc-green-dark);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      margin-top: 12px;
+      line-height: 1.5;
+    }
+    .cc-back {
+      display: block;
+      text-align: center;
+      margin-top: 8px;
+      color: var(--cc-muted);
+      font-size: 0.9rem;
+      text-decoration: none;
+    }
+    .cc-back:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="cc-wrap">
+    <img class="cc-logo" src="icons/Icon-192.png" alt="CleanCity">
+    <h1>CleanCity Cameroun</h1>
+    <p class="cc-sub">Téléchargez l'application mobile et installez-la directement sur votre téléphone.</p>
+
+    <div class="cc-card">
+      <h2>Android</h2>
+      <p class="cc-meta">Fichier APK · version <span id="cc-version">—</span></p>
+      <a class="cc-btn" href="downloads/CleanCity.apk" download>⬇ Télécharger l'APK</a>
+      <ol class="cc-steps">
+        <li>Ouvrez le fichier téléchargé depuis vos notifications ou votre dossier "Téléchargements".</li>
+        <li>Si Android bloque l'installation, autorisez "Installer des applications inconnues" pour votre navigateur.</li>
+        <li>Suivez les instructions à l'écran pour terminer l'installation.</li>
+      </ol>
+    </div>
+
+    <div class="cc-card">
+      <details>
+        <summary>iPhone / iOS (avancé)</summary>
+        <p class="cc-meta" style="margin-top:10px;">Fichier .ipa non signé · réservé aux utilisateurs à l'aise avec le sideloading.</p>
+        <a class="cc-btn secondary" href="downloads/CleanCity-unsigned.ipa" download>⬇ Télécharger le .ipa</a>
+        <div class="cc-warning">
+          Ce fichier n'est pas signé par l'App Store. Il doit être installé avec un outil de sideloading
+          (par ex. Sideloadly ou AltStore) qui le signe avec votre identifiant Apple gratuit. L'app devra
+          être re-signée tous les 7 jours avec un compte Apple gratuit.
+        </div>
+      </details>
+    </div>
+
+    <a class="cc-back" href="/">← Retour à l'application web</a>
+  </div>
+
+  <script>
+    fetch('downloads/version.json').then(r => r.ok ? r.json() : null).then(data => {
+      if (data && data.version) {
+        document.getElementById('cc-version').textContent = data.version;
+      }
+    }).catch(() => {});
+  </script>
+</body>
+</html>

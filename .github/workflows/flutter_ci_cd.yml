@@ -132,6 +132,20 @@ jobs:
           path: build/web
           retention-days: 7
 
+      - name: Publish mobile artifacts alongside the web build
+        # Makes the APK/IPA built above downloadable from
+        # cleancity.pages.dev/download.html instead of only as a
+        # GitHub Actions artifact (which requires a GitHub login and
+        # expires after 7 days).
+        run: |
+          mkdir -p build/web/downloads
+          cp build/app/outputs/flutter-apk/app-release.apk build/web/downloads/CleanCity.apk
+          cp build/ios/CleanCity-unsigned.ipa build/web/downloads/CleanCity-unsigned.ipa
+          jq -n --arg version "$(grep '^version:' pubspec.yaml | cut -d' ' -f2)" \
+                --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+                '{version: $version, builtAt: $builtAt}' \
+                > build/web/downloads/version.json
+
       - name: Ensure Cloudflare Pages project exists
         # `wrangler pages deploy` refuses to auto-create the project in
         # non-interactive CI (it can only prompt for confirmation in a real
