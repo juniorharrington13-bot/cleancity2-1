@@ -40,8 +40,6 @@ jobs:
     needs: analyze_and_test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: macos-latest # requis pour compiler la cible iOS
-    permissions:
-      contents: write # requis pour pousser le build web sur la branche gh-pages
     env:
       # Un seul fichier d'env généré à partir des secrets du repo, consommé par
       # tous les builds via --dart-define-from-file. Ajouter/mettre à jour les
@@ -123,10 +121,9 @@ jobs:
           retention-days: 7
 
       - name: Build Web App
-        # --base-href matches this repo's GitHub Pages URL
-        # (https://<owner>.github.io/cleancity2-1/); without it, asset
-        # paths would resolve against "/" and fail to load on Pages.
-        run: flutter build web --release --base-href=/cleancity2-1/ --dart-define-from-file="$ENV_FILE"
+        # Served from the root of a pages.dev (sub)domain, unlike GitHub
+        # Pages' /cleancity2-1/ subpath, so base-href is just "/".
+        run: flutter build web --release --base-href=/ --dart-define-from-file="$ENV_FILE"
 
       - name: Upload Web App
         uses: actions/upload-artifact@v4
@@ -135,9 +132,17 @@ jobs:
           path: build/web
           retention-days: 7
 
-      - name: Deploy web build to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Deploy web build to Cloudflare Pages
+        # GitHub Pages (Fastly-backed) turned out to be unreachable from the
+        # team's network/ISP; Cloudflare's edge has much stronger routing in
+        # that region. Requires CLOUDFLARE_API_TOKEN (Cloudflare Pages: Edit
+        # permission) and CLOUDFLARE_ACCOUNT_ID secrets — see Settings >
+        # Secrets and variables > Actions. Auto-creates the Pages project on
+        # first deploy if "cleancity2-1" doesn't exist yet.
+        uses: cloudflare/pages-action@v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: build/web
-          publish_branch: gh-pages
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: cleancity2-1
+          directory: build/web
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
