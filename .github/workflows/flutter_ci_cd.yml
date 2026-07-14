@@ -137,12 +137,11 @@ jobs:
         # team's network/ISP; Cloudflare's edge has much stronger routing in
         # that region. Requires CLOUDFARE_TOKEN_API (Cloudflare Pages: Edit
         # permission) and CLOUDFARE_ACCOUNT secrets — see Settings >
-        # Secrets and variables > Actions. Auto-creates the Pages project on
-        # first deploy if "cleancity2-1" doesn't exist yet.
-        uses: cloudflare/pages-action@v1
-        with:
-          apiToken: ${{ secrets.CLOUDFARE_TOKEN_API }}
-          accountId: ${{ secrets.CLOUDFARE_ACCOUNT }}
-          projectName: cleancity2-1
-          directory: build/web
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+        # Secrets and variables > Actions. Uses wrangler directly (not
+        # cloudflare/pages-action) since that action requires the Pages
+        # project to already exist, while `wrangler pages deploy` creates it
+        # automatically on first deploy if "cleancity2-1" doesn't exist yet.
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_TOKEN_API }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT }}
+        run: npx wrangler@3 pages deploy build/web --project-name=cleancity2-1 --commit-dirty=true
