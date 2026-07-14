@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cleancity/nav.dart';
 import 'package:cleancity/components/app_error_handler.dart';
 import 'package:cleancity/l10n/generated/app_localizations.dart';
@@ -22,14 +24,21 @@ Future<void> main() async {
   await localeProvider.initialize();
 
   try {
-    await SupabaseConfig.initialize();
+    // Bounded: a stalled network call here must never hang first paint
+    // indefinitely — better to boot with Supabase unavailable than not boot.
+    await SupabaseConfig.initialize().timeout(const Duration(seconds: 8));
   } catch (e) {
     // Allow the app to boot even if Supabase init fails (e.g., transient web/network issues).
     debugPrint('Supabase initialization failed: $e');
   }
 
-  // Push notifications (OneSignal). Safe no-op if not configured.
-  await PushNotificationService.initialize();
+  // Push notifications (OneSignal): fire-and-forget. This talks to a
+  // third-party service and must never block first paint — previously this
+  // was awaited here, so a slow/unreachable OneSignal endpoint stalled the
+  // entire app before runApp() ever ran.
+  unawaited(PushNotificationService.initialize().catchError((e) {
+    debugPrint('Push notification initialization failed: $e');
+  }));
 
   runApp(MyApp(localeProvider: localeProvider));
 }
