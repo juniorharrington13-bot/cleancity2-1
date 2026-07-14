@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://cleancity.pages.dev/sitemap.xml
+Sitemap: https://cleancity-edx.pages.dev/sitemap.xml
