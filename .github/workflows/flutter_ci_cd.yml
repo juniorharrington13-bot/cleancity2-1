@@ -135,14 +135,14 @@ jobs:
       - name: Deploy web build to Cloudflare Pages
         # GitHub Pages (Fastly-backed) turned out to be unreachable from the
         # team's network/ISP; Cloudflare's edge has much stronger routing in
-        # that region. Requires CLOUDFLARE_API_TOKEN (Cloudflare Pages: Edit
-        # permission) and CLOUDFLARE_ACCOUNT_ID secrets — see Settings >
+        # that region. Requires CLOUDFARE_TOKEN_API (Cloudflare Pages: Edit
+        # permission) and CLOUDFARE_ACCOUNT secrets — see Settings >
         # Secrets and variables > Actions. Auto-creates the Pages project on
         # first deploy if "cleancity2-1" doesn't exist yet.
         uses: cloudflare/pages-action@v1
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CLOUDFARE_TOKEN_API }}
+          accountId: ${{ secrets.CLOUDFARE_ACCOUNT }}
           projectName: cleancity2-1
           directory: build/web
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
