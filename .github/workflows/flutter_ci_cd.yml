@@ -151,12 +151,19 @@ jobs:
                 '{version: $version, builtAt: $builtAt}' \
                 > build/web/downloads/version.json
 
+          # `gh release create file#label` only sets the display label, not
+          # the actual asset filename served at .../releases/download/<tag>/,
+          # so the APK must be renamed on disk first to get a stable URL.
+          # Renamed outside build/web so it never ends up in the Cloudflare
+          # Pages deploy (which would hit the 25 MiB limit again).
+          cp build/app/outputs/flutter-apk/app-release.apk "$RUNNER_TEMP/CleanCity.apk"
+
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest \
             --title "CleanCity $VERSION (dernière build)" \
             --notes "Build automatique depuis main — APK Android et IPA iOS non signé pour installation directe." \
-            build/app/outputs/flutter-apk/app-release.apk#CleanCity.apk \
-            build/ios/CleanCity-unsigned.ipa#CleanCity-unsigned.ipa
+            "$RUNNER_TEMP/CleanCity.apk" \
+            build/ios/CleanCity-unsigned.ipa
 
       - name: Ensure Cloudflare Pages project exists
         # `wrangler pages deploy` refuses to auto-create the project in
