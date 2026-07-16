@@ -200,6 +200,50 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
   StreamSubscription<AuthState>? _authSub;
   bool _handledOAuthRedirect = false;
 
+  Future<void> _forgotPassword() async {
+    final resetEmailCtrl = TextEditingController(text: _emailCtrl.text.trim());
+    final formKey = GlobalKey<FormState>();
+    final email = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.l10n.authForgotPasswordDialogTitle),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: resetEmailCtrl,
+            autofocus: true,
+            keyboardType: TextInputType.emailAddress,
+            decoration: InputDecoration(labelText: context.l10n.commonEmail),
+            validator: (v) => (v ?? '').trim().contains('@') ? null : context.l10n.authForgotPasswordEmailRequired,
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => dialogContext.pop(), child: Text(context.l10n.commonCancel)),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                dialogContext.pop(resetEmailCtrl.text.trim());
+              }
+            },
+            child: Text(context.l10n.authForgotPasswordSendButton),
+          ),
+        ],
+      ),
+    );
+    if (email == null || email.isEmpty) return;
+    if (!mounted) return;
+
+    try {
+      await SupabaseAuthManager().resetPassword(email: email, context: context);
+      if (!mounted) return;
+      AppSnackbars.success(context, context.l10n.authForgotPasswordSuccess);
+    } catch (e) {
+      debugPrint('Forgot password failed: $e');
+      if (!mounted) return;
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -347,7 +391,7 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () {},
+                  onPressed: _forgotPassword,
                   child: Text(context.l10n.authForgotPassword,
                       style: TextStyle(
                           color: LightModeColors.lightPrimary,

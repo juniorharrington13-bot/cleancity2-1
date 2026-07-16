@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:go_router/go_router.dart';
+import 'package:cleancity/auth/auth_manager.dart';
 import 'package:cleancity/nav.dart';
 import 'package:cleancity/models/app_user.dart';
 import 'package:cleancity/components/app_error_handler.dart';
@@ -101,12 +102,25 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  Future<void> _logout() async {
+    try {
+      await SupabaseAuthManager().signOut();
+      if (!mounted) return;
+      context.go(AppRoutes.login);
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
+    }
+  }
+
   Widget _buildNavItem(int index, IconData icon, String title,
       {bool isLogout = false}) {
     final isSelected = _selectedIndex == index && !isLogout;
     return InkWell(
       onTap: () {
-        if (!isLogout) {
+        if (isLogout) {
+          _logout();
+        } else {
           setState(() {
             _selectedIndex = index;
           });
