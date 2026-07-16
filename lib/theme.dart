@@ -85,6 +85,34 @@ class LightModeColors {
   static const lightInversePrimary = Color(0xFF81C784);
 }
 
+class DarkModeColors {
+  static const darkPrimary = Color(0xFF66BB6A); // Lighter emerald for dark bg contrast
+  static const darkOnPrimary = Color(0xFF00390D);
+  static const darkPrimaryContainer = Color(0xFF1B5E20);
+  static const darkOnPrimaryContainer = Color(0xFFC8E6C9);
+
+  static const darkSecondary = Color(0xFFFFCA28);
+  static const darkOnSecondary = Color(0xFF000000);
+
+  static const darkTertiary = Color(0xFF3A3A3A);
+  static const darkOnTertiary = Color(0xFFE0E0E0);
+
+  static const darkError = Color(0xFFFF8A65);
+  static const darkOnError = Color(0xFF3E0A00);
+  static const darkErrorContainer = Color(0xFFBF360C);
+  static const darkOnErrorContainer = Color(0xFFFFCCBC);
+
+  static const darkSurface = Color(0xFF1E1E1E);
+  static const darkOnSurface = Color(0xFFECECEC);
+  static const darkBackground = Color(0xFF121212);
+  static const darkSurfaceVariant = Color(0xFF2A2A2A);
+  static const darkOnSurfaceVariant = Color(0xFFB0B0B0);
+
+  static const darkOutline = Color(0xFF4D4D4D);
+  static const darkShadow = Color(0x33000000);
+  static const darkInversePrimary = Color(0xFF2E7D32);
+}
+
 class FontSizes {
   static const double displayLarge = 57.0;
   static const double displayMedium = 45.0;
@@ -197,7 +225,99 @@ ThemeData get lightTheme => ThemeData(
   textTheme: _buildTextTheme(),
 );
 
-ThemeData get darkTheme => lightTheme; // We force light theme aesthetic for this brand to keep the clean look.
+ThemeData get darkTheme => ThemeData(
+  useMaterial3: true,
+  colorScheme: ColorScheme.dark(
+    primary: DarkModeColors.darkPrimary,
+    onPrimary: DarkModeColors.darkOnPrimary,
+    primaryContainer: DarkModeColors.darkPrimaryContainer,
+    onPrimaryContainer: DarkModeColors.darkOnPrimaryContainer,
+    secondary: DarkModeColors.darkSecondary,
+    onSecondary: DarkModeColors.darkOnSecondary,
+    tertiary: DarkModeColors.darkTertiary,
+    onTertiary: DarkModeColors.darkOnTertiary,
+    error: DarkModeColors.darkError,
+    onError: DarkModeColors.darkOnError,
+    errorContainer: DarkModeColors.darkErrorContainer,
+    onErrorContainer: DarkModeColors.darkOnErrorContainer,
+    surface: DarkModeColors.darkSurface,
+    onSurface: DarkModeColors.darkOnSurface,
+    surfaceContainerHighest: DarkModeColors.darkSurfaceVariant,
+    onSurfaceVariant: DarkModeColors.darkOnSurfaceVariant,
+    outline: DarkModeColors.darkOutline,
+    shadow: DarkModeColors.darkShadow,
+    inversePrimary: DarkModeColors.darkInversePrimary,
+  ),
+  brightness: Brightness.dark,
+  scaffoldBackgroundColor: DarkModeColors.darkBackground,
+  appBarTheme: const AppBarTheme(
+    backgroundColor: Colors.transparent,
+    foregroundColor: DarkModeColors.darkOnSurface,
+    elevation: 0,
+    scrolledUnderElevation: 0,
+    centerTitle: true,
+  ),
+  cardTheme: CardThemeData(
+    elevation: 0,
+    color: DarkModeColors.darkSurface,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      side: BorderSide(
+        color: DarkModeColors.darkSurfaceVariant,
+        width: 1,
+      ),
+    ),
+  ),
+  elevatedButtonTheme: ElevatedButtonThemeData(
+    style: ElevatedButton.styleFrom(
+      backgroundColor: DarkModeColors.darkPrimary,
+      foregroundColor: DarkModeColors.darkOnPrimary,
+      elevation: 0,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.max),
+      ),
+      textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+    ),
+  ),
+  outlinedButtonTheme: OutlinedButtonThemeData(
+    style: OutlinedButton.styleFrom(
+      foregroundColor: DarkModeColors.darkPrimary,
+      side: const BorderSide(color: DarkModeColors.darkPrimary, width: 1.5),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.max),
+      ),
+      textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+    ),
+  ),
+  inputDecorationTheme: InputDecorationTheme(
+    filled: true,
+    fillColor: DarkModeColors.darkSurface,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      borderSide: const BorderSide(color: DarkModeColors.darkOutline),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      borderSide: const BorderSide(color: DarkModeColors.darkSurfaceVariant),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      borderSide: const BorderSide(color: DarkModeColors.darkPrimary, width: 2),
+    ),
+    hintStyle: TextStyle(color: DarkModeColors.darkOnSurfaceVariant),
+  ),
+  bottomNavigationBarTheme: BottomNavigationBarThemeData(
+    backgroundColor: DarkModeColors.darkSurface,
+    selectedItemColor: DarkModeColors.darkPrimary,
+    unselectedItemColor: DarkModeColors.darkOnSurfaceVariant,
+    type: BottomNavigationBarType.fixed,
+    elevation: 0,
+  ),
+  textTheme: _buildTextTheme(),
+);
 
 TextTheme _buildTextTheme() {
   return TextTheme(

@@ -261,8 +261,15 @@ class AdminStatsService {
         final row = Map<String, dynamic>.from(raw);
         final address = row['addresses'] is Map ? Map<String, dynamic>.from(row['addresses'] as Map) : const <String, dynamic>{};
         final generator = row['generator'] is Map ? Map<String, dynamic>.from(row['generator'] as Map) : const <String, dynamic>{};
-        final pickupsList = (row['pickups'] as List?) ?? const [];
-        final pickup0 = pickupsList.isNotEmpty ? Map<String, dynamic>.from(pickupsList.first as Map) : const <String, dynamic>{};
+        // `pickups` comes back as a single joined object (not a list) because
+        // `pickups.request_id` is unique, so PostgREST treats it as a
+        // one-to-one relationship — but defend against either shape.
+        final pickupsRaw = row['pickups'];
+        final pickup0 = pickupsRaw is Map
+            ? Map<String, dynamic>.from(pickupsRaw)
+            : (pickupsRaw is List && pickupsRaw.isNotEmpty && pickupsRaw.first is Map)
+                ? Map<String, dynamic>.from(pickupsRaw.first as Map)
+                : const <String, dynamic>{};
         final collector = pickup0['collector'] is Map ? Map<String, dynamic>.from(pickup0['collector'] as Map) : null;
         final center = pickup0['center'] is Map ? Map<String, dynamic>.from(pickup0['center'] as Map) : null;
         return AdminOperationRecord(

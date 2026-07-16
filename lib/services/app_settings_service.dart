@@ -15,6 +15,8 @@ class AppSettingsService {
 
   static const _wasteRatesKey = 'waste_rates_xaf_per_kg';
   static const _recoveryGoalKey = 'recovery_rate_goal_percent';
+  static const _generatorPointsPerRequestKey = 'generator_points_per_request';
+  static const _generatorPointsPayoutKey = 'generator_points_payout';
 
   Future<Map<String, int>> getWasteRates() async {
     try {
@@ -57,6 +59,57 @@ class AppSettingsService {
     await _client.from('app_settings').upsert({
       'key': _recoveryGoalKey,
       'value': percent,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+      'updated_by': uid,
+    });
+  }
+
+  Future<int> getGeneratorPointsPerRequest() async {
+    try {
+      final row = await _client.from('app_settings').select('value').eq('key', _generatorPointsPerRequestKey).maybeSingle();
+      final value = row?['value'];
+      if (value is num) return value.toInt();
+      final parsed = int.tryParse('$value');
+      if (parsed != null) return parsed;
+    } catch (e) {
+      debugPrint('AppSettingsService.getGeneratorPointsPerRequest failed, using default: $e');
+    }
+    return 10;
+  }
+
+  Future<void> updateGeneratorPointsPerRequest(int points) async {
+    final uid = _client.auth.currentUser?.id;
+    await _client.from('app_settings').upsert({
+      'key': _generatorPointsPerRequestKey,
+      'value': points,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+      'updated_by': uid,
+    });
+  }
+
+  /// Returns `(thresholdPoints, amountXaf)`: every time a generator's total
+  /// points cross a multiple of `thresholdPoints`, `amountXaf` becomes
+  /// available for withdrawal.
+  Future<(int, int)> getGeneratorPointsPayout() async {
+    try {
+      final row = await _client.from('app_settings').select('value').eq('key', _generatorPointsPayoutKey).maybeSingle();
+      final value = row?['value'];
+      if (value is Map) {
+        final threshold = (value['threshold_points'] is num) ? (value['threshold_points'] as num).toInt() : 100;
+        final amount = (value['amount_xaf'] is num) ? (value['amount_xaf'] as num).toInt() : 2000;
+        return (threshold, amount);
+      }
+    } catch (e) {
+      debugPrint('AppSettingsService.getGeneratorPointsPayout failed, using default: $e');
+    }
+    return (100, 2000);
+  }
+
+  Future<void> updateGeneratorPointsPayout({required int thresholdPoints, required int amountXaf}) async {
+    final uid = _client.auth.currentUser?.id;
+    await _client.from('app_settings').upsert({
+      'key': _generatorPointsPayoutKey,
+      'value': {'threshold_points': thresholdPoints, 'amount_xaf': amountXaf},
       'updated_at': DateTime.now().toUtc().toIso8601String(),
       'updated_by': uid,
     });

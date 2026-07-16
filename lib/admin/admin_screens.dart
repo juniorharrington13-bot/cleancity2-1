@@ -14,6 +14,8 @@ import 'package:cleancity/services/center_wallet_service.dart';
 import 'package:cleancity/services/payout_request_service.dart';
 import 'package:cleancity/models/center_wallet_topup.dart';
 import 'package:cleancity/models/payout_request.dart';
+import 'package:cleancity/models/dispute.dart';
+import 'package:cleancity/services/dispute_service.dart';
 import 'package:cleancity/constants/waste_rates.dart';
 import '../theme.dart';
 
@@ -89,9 +91,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
           _buildNavItem(2, Icons.recycling_outlined, context.l10n.adminNavCatalog),
           _buildNavItem(3, Icons.bar_chart_outlined, context.l10n.adminNavReports),
           _buildNavItem(4, Icons.settings_outlined, context.l10n.adminNavSettings),
+          _buildNavItem(5, Icons.flag_outlined, context.l10n.adminNavDisputes),
           const Spacer(),
           const Divider(),
-          _buildNavItem(5, Icons.logout, context.l10n.commonLogout, isLogout: true),
+          _buildNavItem(6, Icons.logout, context.l10n.commonLogout, isLogout: true),
           const SizedBox(height: 24),
         ],
       ),
@@ -236,6 +239,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return const AdminReportsView();
       case 4:
         return const AdminSettingsView();
+      case 5:
+        return const DisputesView();
       default:
         return Center(child: Text(context.l10n.adminUnderConstruction));
     }
@@ -1961,10 +1966,14 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
     for (final code in _order) code: TextEditingController(),
   };
   final _goalController = TextEditingController();
+  final _generatorPointsController = TextEditingController();
+  final _generatorThresholdController = TextEditingController();
+  final _generatorPayoutController = TextEditingController();
 
   late Future<void> _future;
   bool _savingRates = false;
   bool _savingGoal = false;
+  bool _savingGeneratorPoints = false;
 
   @override
   void initState() {
@@ -1975,10 +1984,15 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
   Future<void> _load() async {
     final rates = await _settingsService.getWasteRates();
     final goal = await _settingsService.getRecoveryGoalPercent();
+    final generatorPoints = await _settingsService.getGeneratorPointsPerRequest();
+    final (threshold, payoutXaf) = await _settingsService.getGeneratorPointsPayout();
     for (final code in _order) {
       _rateControllers[code]!.text = '${rates[code] ?? 0}';
     }
     _goalController.text = goal.toStringAsFixed(0);
+    _generatorPointsController.text = '$generatorPoints';
+    _generatorThresholdController.text = '$threshold';
+    _generatorPayoutController.text = '$payoutXaf';
   }
 
   @override
@@ -1987,6 +2001,9 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
       c.dispose();
     }
     _goalController.dispose();
+    _generatorPointsController.dispose();
+    _generatorThresholdController.dispose();
+    _generatorPayoutController.dispose();
     super.dispose();
   }
 
@@ -2019,6 +2036,24 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
       AppSnackbars.error(context, context.l10n.adminSettingsSaveFailed);
     } finally {
       if (mounted) setState(() => _savingGoal = false);
+    }
+  }
+
+  Future<void> _saveGeneratorPoints() async {
+    setState(() => _savingGeneratorPoints = true);
+    try {
+      final points = int.tryParse(_generatorPointsController.text.trim()) ?? 10;
+      final threshold = int.tryParse(_generatorThresholdController.text.trim()) ?? 100;
+      final payoutXaf = int.tryParse(_generatorPayoutController.text.trim()) ?? 2000;
+      await _settingsService.updateGeneratorPointsPerRequest(points);
+      await _settingsService.updateGeneratorPointsPayout(thresholdPoints: threshold, amountXaf: payoutXaf);
+      if (!mounted) return;
+      AppSnackbars.success(context, context.l10n.adminSettingsSaved);
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackbars.error(context, context.l10n.adminSettingsSaveFailed);
+    } finally {
+      if (mounted) setState(() => _savingGeneratorPoints = false);
     }
   }
 
@@ -2108,6 +2143,79 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                               ? const SizedBox(
                                   height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
                               : Text(context.l10n.commonSave),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _SettingsSection(
+                    title: context.l10n.adminSettingsGeneratorPointsTitle,
+                    subtitle: context.l10n.adminSettingsGeneratorPointsSubtitle,
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            children: [
+                              Expanded(child: Text(context.l10n.adminSettingsGeneratorPointsPerRequestLabel)),
+                              SizedBox(
+                                width: 120,
+                                child: TextField(
+                                  controller: _generatorPointsController,
+                                  keyboardType: TextInputType.number,
+                                  textAlign: TextAlign.right,
+                                  decoration: const InputDecoration(
+                                      isDense: true, suffixText: 'pts', border: OutlineInputBorder()),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            children: [
+                              Expanded(child: Text(context.l10n.adminSettingsGeneratorThresholdLabel)),
+                              SizedBox(
+                                width: 120,
+                                child: TextField(
+                                  controller: _generatorThresholdController,
+                                  keyboardType: TextInputType.number,
+                                  textAlign: TextAlign.right,
+                                  decoration: const InputDecoration(
+                                      isDense: true, suffixText: 'pts', border: OutlineInputBorder()),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            children: [
+                              Expanded(child: Text(context.l10n.adminSettingsGeneratorPayoutLabel)),
+                              SizedBox(
+                                width: 120,
+                                child: TextField(
+                                  controller: _generatorPayoutController,
+                                  keyboardType: TextInputType.number,
+                                  textAlign: TextAlign.right,
+                                  decoration: const InputDecoration(
+                                      isDense: true, suffixText: 'XAF', border: OutlineInputBorder()),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: ElevatedButton(
+                            onPressed: _savingGeneratorPoints ? null : _saveGeneratorPoints,
+                            child: _savingGeneratorPoints
+                                ? const SizedBox(
+                                    height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                : Text(context.l10n.commonSave),
+                          ),
                         ),
                       ],
                     ),
@@ -2221,5 +2329,199 @@ String _roleLabel(BuildContext context, String role) {
       return context.l10n.roleCenter;
     default:
       return context.l10n.roleGenerator;
+  }
+}
+
+// --- DISPUTES VIEW ---
+class DisputesView extends StatefulWidget {
+  const DisputesView({super.key});
+
+  @override
+  State<DisputesView> createState() => _DisputesViewState();
+}
+
+class _DisputesViewState extends State<DisputesView> {
+  final _service = DisputeService();
+  String? _statusFilter;
+  late Future<List<Dispute>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _service.listAll(status: _statusFilter);
+  }
+
+  void _reload() {
+    setState(() => _future = _service.listAll(status: _statusFilter));
+  }
+
+  String _statusLabel(BuildContext context, String status) {
+    switch (status) {
+      case 'in_review':
+        return context.l10n.adminDisputeStatusInReview;
+      case 'resolved':
+        return context.l10n.adminDisputeStatusResolved;
+      case 'dismissed':
+        return context.l10n.adminDisputeStatusDismissed;
+      default:
+        return context.l10n.adminDisputeStatusOpen;
+    }
+  }
+
+  String _categoryLabel(BuildContext context, String category) {
+    switch (category) {
+      case 'no_show':
+        return context.l10n.disputeCategoryNoShow;
+      case 'weight_mismatch':
+        return context.l10n.disputeCategoryWeightMismatch;
+      case 'payment_issue':
+        return context.l10n.disputeCategoryPaymentIssue;
+      default:
+        return context.l10n.disputeCategoryOther;
+    }
+  }
+
+  Future<void> _act(Dispute d, String status) async {
+    final noteCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(status == 'resolved' ? context.l10n.adminDisputeResolveButton : context.l10n.adminDisputeDismissButton),
+        content: TextField(
+          controller: noteCtrl,
+          maxLines: 3,
+          decoration: InputDecoration(labelText: context.l10n.adminDisputeNoteLabel, border: const OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => context.pop(false), child: Text(context.l10n.commonCancel)),
+          FilledButton(onPressed: () => context.pop(true), child: Text(context.l10n.commonConfirm)),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await _service.updateStatus(id: d.id, status: status, adminNote: noteCtrl.text.trim().isEmpty ? null : noteCtrl.text.trim());
+      if (!mounted) return;
+      AppSnackbars.success(context, context.l10n.adminSettingsSaved);
+      _reload();
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(context.l10n.adminNavDisputes, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
+              DropdownButton<String?>(
+                value: _statusFilter,
+                hint: Text(context.l10n.adminDisputeStatusOpen),
+                items: [
+                  DropdownMenuItem(value: null, child: Text(context.l10n.adminNavDisputes)),
+                  DropdownMenuItem(value: 'open', child: Text(context.l10n.adminDisputeStatusOpen)),
+                  DropdownMenuItem(value: 'resolved', child: Text(context.l10n.adminDisputeStatusResolved)),
+                  DropdownMenuItem(value: 'dismissed', child: Text(context.l10n.adminDisputeStatusDismissed)),
+                ],
+                onChanged: (v) {
+                  setState(() => _statusFilter = v);
+                  _reload();
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<List<Dispute>>(
+            future: _future,
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: CircularProgressIndicator()));
+              }
+              if (snap.hasError) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(context.l10n.adminDisputesLoadFailed, style: const TextStyle(color: Colors.red)),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: _reload,
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: Text(context.l10n.commonRetry),
+                    ),
+                  ],
+                );
+              }
+              final disputes = snap.data ?? const <Dispute>[];
+              if (disputes.isEmpty) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(context.l10n.adminDisputesEmptyTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    Text(context.l10n.adminDisputesEmptySubtitle, style: TextStyle(color: Colors.grey.shade600)),
+                  ],
+                );
+              }
+              return Column(
+                children: disputes.map((d) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration:
+                        BoxDecoration(border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(12)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(_categoryLabel(context, d.category), style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Chip(label: Text(_statusLabel(context, d.status))),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(d.description),
+                        const SizedBox(height: 6),
+                        Text('${d.reporterName ?? d.reportedBy.substring(0, 8)} • ${d.createdAt.toLocal()}'.split('.').first,
+                            style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                        if ((d.adminNote ?? '').trim().isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(d.adminNote!, style: TextStyle(color: Colors.grey.shade700, fontStyle: FontStyle.italic)),
+                        ],
+                        if (d.status == 'open' || d.status == 'in_review') ...[
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                onPressed: () => _act(d, 'dismissed'),
+                                child: Text(context.l10n.adminDisputeDismissButton, style: const TextStyle(color: Colors.red)),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton(
+                                onPressed: () => _act(d, 'resolved'),
+                                child: Text(context.l10n.adminDisputeResolveButton),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
 }

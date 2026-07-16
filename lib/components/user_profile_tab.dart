@@ -11,6 +11,7 @@ import 'package:cleancity/nav.dart';
 import 'package:cleancity/services/app_user_service.dart';
 import 'package:cleancity/services/locale_provider.dart';
 import 'package:cleancity/services/media_upload_service.dart';
+import 'package:cleancity/services/theme_provider.dart';
 import 'package:cleancity/theme.dart';
 
 /// Reusable profile tab for all roles.
@@ -291,6 +292,13 @@ class _UserProfileTabState extends State<UserProfileTab> {
                     context.read<LocaleProvider>().setLocale(v, persistToDb: true),
               ),
             ),
+            const SizedBox(height: 12),
+            Consumer<ThemeProvider>(
+              builder: (context, themeProvider, _) => _ThemeSelector(
+                currentValue: themeProvider.mode,
+                onChanged: (v) => context.read<ThemeProvider>().setMode(v),
+              ),
+            ),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -349,6 +357,54 @@ class _LanguageSelector extends StatelessWidget {
             Expanded(
               child: Text(
                 labelFor(currentValue),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+            const Icon(Icons.keyboard_arrow_down_rounded),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemeSelector extends StatelessWidget {
+  const _ThemeSelector({
+    required this.currentValue,
+    required this.onChanged,
+  });
+
+  final ThemeMode currentValue;
+  final ValueChanged<ThemeMode> onChanged;
+
+  String _label(BuildContext context, ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.light:
+        return context.l10n.profileThemeLight;
+      case ThemeMode.dark:
+        return context.l10n.profileThemeDark;
+      case ThemeMode.system:
+        return context.l10n.profileThemeSystem;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<ThemeMode>(
+      tooltip: context.l10n.profileThemeTooltip,
+      onSelected: onChanged,
+      itemBuilder: (context) => [
+        PopupMenuItem(value: ThemeMode.light, child: Text(context.l10n.profileThemeLight)),
+        PopupMenuItem(value: ThemeMode.dark, child: Text(context.l10n.profileThemeDark)),
+        PopupMenuItem(value: ThemeMode.system, child: Text(context.l10n.profileThemeSystem)),
+      ],
+      child: InputDecorator(
+        decoration: InputDecoration(labelText: context.l10n.profileThemeLabel),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                _label(context, currentValue),
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),

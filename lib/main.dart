@@ -4,6 +4,7 @@ import 'package:cleancity/nav.dart';
 import 'package:cleancity/components/app_error_handler.dart';
 import 'package:cleancity/l10n/generated/app_localizations.dart';
 import 'package:cleancity/services/locale_provider.dart';
+import 'package:cleancity/services/theme_provider.dart';
 import 'package:cleancity/supabase/supabase_config.dart';
 import 'package:cleancity/services/push_notification_service.dart';
 import 'package:cleancity/theme.dart';
@@ -23,6 +24,9 @@ Future<void> main() async {
   final localeProvider = LocaleProvider();
   await localeProvider.initialize();
 
+  final themeProvider = ThemeProvider();
+  await themeProvider.initialize();
+
   try {
     // Bounded: a stalled network call here must never hang first paint
     // indefinitely — better to boot with Supabase unavailable than not boot.
@@ -40,29 +44,31 @@ Future<void> main() async {
     debugPrint('Push notification initialization failed: $e');
   }));
 
-  runApp(MyApp(localeProvider: localeProvider));
+  runApp(MyApp(localeProvider: localeProvider, themeProvider: themeProvider));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key, required this.localeProvider});
+  const MyApp({super.key, required this.localeProvider, required this.themeProvider});
 
   final LocaleProvider localeProvider;
+  final ThemeProvider themeProvider;
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<LocaleProvider>.value(value: localeProvider),
+        ChangeNotifierProvider<ThemeProvider>.value(value: themeProvider),
       ],
-      child: Consumer<LocaleProvider>(
-        builder: (context, locale, _) => MaterialApp.router(
+      child: Consumer2<LocaleProvider, ThemeProvider>(
+        builder: (context, locale, theme, _) => MaterialApp.router(
           title: 'CLEANCITY Cameroon',
           debugShowCheckedModeBanner: false,
 
           // Theme configuration
           theme: lightTheme,
           darkTheme: darkTheme,
-          themeMode: ThemeMode.system,
+          themeMode: theme.mode,
 
           // Localization: app language follows LocaleProvider, which is
           // wired to the user's saved preference / local choice.

@@ -18,7 +18,7 @@ class WasteRequestService {
     try {
       final rows = await _client
           .from('waste_requests')
-          .select('*, addresses(*)')
+          .select('*, addresses(*), pickups(generator_confirmed_at)')
           .eq('generator_id', uid)
           .order('created_at', ascending: false);
       return (rows as List)
@@ -100,7 +100,7 @@ class WasteRequestService {
   }
 
   Future<WasteRequest> create({
-    required String wasteType,
+    required List<String> wasteTypes,
     required double quantityEstimateKg,
     String? notes,
     DateTime? scheduledAt,
@@ -113,6 +113,7 @@ class WasteRequestService {
   }) async {
     final uid = currentUserId;
     if (uid == null) throw StateError('Not authenticated');
+    if (wasteTypes.isEmpty) throw ArgumentError('wasteTypes must not be empty');
     try {
       String? addressId;
       if ((city ?? '').trim().isNotEmpty ||
@@ -128,10 +129,16 @@ class WasteRequestService {
         );
       }
 
+      // `waste_type` stays a single summary value ('mixed' when more than
+      // one type was picked) so every existing rate lookup / display that
+      // reads that column keeps working unchanged.
+      final primaryType = wasteTypes.length == 1 ? wasteTypes.first : 'mixed';
+
       return await _insertWasteRequestBestEffort(
         generatorId: uid,
         addressId: addressId,
-        wasteType: wasteType,
+        wasteType: primaryType,
+        wasteTypes: wasteTypes,
         quantityEstimateKg: quantityEstimateKg,
         notes: notes,
         scheduledAt: scheduledAt,
@@ -184,6 +191,7 @@ class WasteRequestService {
     required String generatorId,
     required String? addressId,
     required String wasteType,
+    required List<String> wasteTypes,
     required double quantityEstimateKg,
     required String? notes,
     required DateTime? scheduledAt,
@@ -193,6 +201,7 @@ class WasteRequestService {
       'generator_id': generatorId,
       'address_id': addressId,
       'waste_type': wasteType,
+      'waste_types': wasteTypes,
       'quantity_estimate_kg': quantityEstimateKg,
       'notes': notes,
       'status': 'pending',
@@ -210,7 +219,7 @@ class WasteRequestService {
           .single();
       return WasteRequest.fromJson(Map<String, dynamic>.from(row));
     } catch (e) {
-      // If the schema doesn't yet contain `time_slot` (or scheduled_at), retry without optional fields.
+      // If the schema doesn't yet contain `time_slot`/`scheduled_at`/`waste_types`, retry without optional fields.
       debugPrint(
           'WasteRequestService._insertWasteRequestBestEffort retry without optional fields: $e');
       final row = await _client
@@ -341,6 +350,18 @@ class WasteRequestService {
       }).eq('id', requestId);
     } catch (e) {
       debugPrint('WasteRequestService.markCollected failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Generator-side, non-blocking confirmation that a collector really came
+  /// and picked up their waste. Purely informational: it never changes
+  /// `waste_requests.status` and never gates the collector's own flow.
+  Future<void> confirmPickupAsGenerator(String requestId) async {
+    try {
+      await _client.rpc('confirm_pickup_as_generator', params: {'p_request_id': requestId});
+    } catch (e) {
+      debugPrint('WasteRequestService.confirmPickupAsGenerator failed: $e');
       rethrow;
     }
   }

@@ -12,6 +12,7 @@ class PayoutRequest {
     required this.createdAt,
     required this.updatedAt,
     this.adminNote,
+    this.reference,
   });
 
   final String id;
@@ -22,6 +23,7 @@ class PayoutRequest {
   /// One of: pending | paid | rejected
   final String status;
   final String? adminNote;
+  final String? reference;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -33,6 +35,7 @@ class PayoutRequest {
     int? amountXaf,
     String? status,
     String? adminNote,
+    String? reference,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) =>
@@ -44,6 +47,7 @@ class PayoutRequest {
         amountXaf: amountXaf ?? this.amountXaf,
         status: status ?? this.status,
         adminNote: adminNote ?? this.adminNote,
+        reference: reference ?? this.reference,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );
@@ -56,6 +60,7 @@ class PayoutRequest {
         'amount_xaf': amountXaf,
         'status': status,
         'admin_note': adminNote,
+        'reference': reference,
         'created_at': createdAt.toUtc().toIso8601String(),
         'updated_at': updatedAt.toUtc().toIso8601String(),
       };
@@ -71,6 +76,7 @@ class PayoutRequest {
       amountXaf: amount,
       status: (json['status'] ?? 'pending') as String,
       adminNote: json['admin_note']?.toString(),
+      reference: json['reference']?.toString(),
       createdAt: DateTime.tryParse('${json['created_at']}') ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
       updatedAt: DateTime.tryParse('${json['updated_at']}') ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );

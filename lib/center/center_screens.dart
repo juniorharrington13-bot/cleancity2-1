@@ -87,9 +87,8 @@ class _CenterDashboardState extends State<CenterDashboard> {
             ),
           ],
         ),
-        actions: [
-          const NotificationBellButton(),
-          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
+        actions: const [
+          NotificationBellButton(),
         ],
       ),
       body: IndexedStack(index: _index, children: pages),
@@ -336,7 +335,9 @@ class _CenterMainTabState extends State<_CenterMainTab> {
                         : t.type == 'payout_debit'
                             ? context.l10n.walletTxTypePayout
                             : context.l10n.walletTxTypeAdjustment;
-                    final reference = 'TXN-${t.id.length >= 8 ? t.id.substring(0, 8).toUpperCase() : t.id.toUpperCase()}';
+                    final reference = (t.reference?.trim().isNotEmpty ?? false)
+                        ? t.reference!.trim()
+                        : 'TXN-${t.id.length >= 8 ? t.id.substring(0, 8).toUpperCase() : t.id.toUpperCase()}';
                     final date = t.createdAt?.toLocal();
                     final dateStr = date == null
                         ? '—'
@@ -1083,10 +1084,15 @@ class _ReceptionFormBodyState extends State<_ReceptionFormBody> {
         }
       }
 
-      final pickups = (map['pickups'] as List?)?.cast<dynamic>();
-      final pickup0 = pickups != null && pickups.isNotEmpty
-          ? Map<String, dynamic>.from(pickups.first as Map)
-          : null;
+      // `pickups` comes back as a single joined object (not a list) because
+      // `pickups.request_id` is unique, so PostgREST treats it as a
+      // one-to-one relationship — but defend against either shape.
+      final pickupsRaw = map['pickups'];
+      final pickup0 = pickupsRaw is Map
+          ? Map<String, dynamic>.from(pickupsRaw)
+          : (pickupsRaw is List && pickupsRaw.isNotEmpty && pickupsRaw.first is Map)
+              ? Map<String, dynamic>.from(pickupsRaw.first as Map)
+              : null;
       final collectorId = pickup0?['collector_id'] as String?;
       map['collector_id'] = collectorId;
       if (collectorId != null) {

@@ -15,7 +15,9 @@ class WasteRequest {
     required this.createdAt,
     required this.updatedAt,
     this.address,
-  });
+    this.pickupGeneratorConfirmedAt,
+    List<String>? wasteTypes,
+  }) : wasteTypes = wasteTypes ?? const [];
 
   final String id;
   final String generatorId;
@@ -35,6 +37,16 @@ class WasteRequest {
 
   /// Optional joined address row (`addresses(*)`).
   final Map<String, dynamic>? address;
+
+  /// Set once the generator has confirmed (non-blocking, informational) that
+  /// a collector really came and picked up their waste. From the joined
+  /// `pickups(generator_confirmed_at)` embed, when requested.
+  final DateTime? pickupGeneratorConfirmedAt;
+
+  /// The full set of waste types the generator picked for this request.
+  /// `wasteType` stays the single summary value ('mixed' when this has more
+  /// than one entry) used for rate lookups elsewhere in the app.
+  final List<String> wasteTypes;
 
   WasteRequest copyWith({
     String? id,
@@ -70,6 +82,7 @@ class WasteRequest {
         'generator_id': generatorId,
         'address_id': addressId,
         'waste_type': wasteType,
+        'waste_types': wasteTypes,
         'quantity_estimate_kg': quantityEstimateKg,
         'status': status,
         'notes': notes,
@@ -95,6 +108,20 @@ class WasteRequest {
       createdAt: DateTime.tryParse('${json['created_at']}') ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
       updatedAt: DateTime.tryParse('${json['updated_at']}') ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
       address: json['addresses'] == null ? null : Map<String, dynamic>.from(json['addresses'] as Map),
+      pickupGeneratorConfirmedAt: DateTime.tryParse('${_pickupField(json['pickups'], 'generator_confirmed_at')}'),
+      wasteTypes: (json['waste_types'] is List)
+          ? (json['waste_types'] as List).map((e) => e.toString()).where((e) => e.isNotEmpty).toList()
+          : null,
     );
+  }
+
+  /// `pickups` may come back as a single joined object or a list, depending
+  /// on how PostgREST resolves the one-to-one embed.
+  static Object? _pickupField(Object? pickups, String key) {
+    if (pickups is Map) return pickups[key];
+    if (pickups is List && pickups.isNotEmpty && pickups.first is Map) {
+      return (pickups.first as Map)[key];
+    }
+    return null;
   }
 }

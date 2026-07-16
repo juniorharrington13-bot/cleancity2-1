@@ -61,9 +61,35 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) context.go(AppRoutes.login);
-    });
+    _resolveNextRoute();
+  }
+
+  /// Supabase persists the session locally, so a returning signed-in user
+  /// should never be bounced back to the login screen — send them straight
+  /// to their dashboard (or role selection if they haven't picked one yet).
+  Future<void> _resolveNextRoute() async {
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+
+    final authUser = Supabase.instance.client.auth.currentUser;
+    if (authUser == null) {
+      context.go(AppRoutes.login);
+      return;
+    }
+
+    try {
+      final profile = await AppUserService().getCurrentProfile();
+      if (!mounted) return;
+      if (profile != null && profile.isRoleLocked) {
+        context.go(_dashboardRouteForRole(profile.role));
+      } else {
+        context.go(AppRoutes.roleSelection);
+      }
+    } catch (e) {
+      debugPrint('Splash: failed to resolve returning session: $e');
+      if (!mounted) return;
+      context.go(AppRoutes.roleSelection);
+    }
   }
 
   @override
@@ -187,6 +213,7 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
       _handledOAuthRedirect = true;
       try {
         await PushNotificationService.setExternalUserId(user.id);
+        await PushNotificationService.requestPermission();
         await AppUserService().ensureProfileForAuthUser(user);
       } catch (e) {
         debugPrint('Post-OAuth login setup failed: $e');
@@ -237,6 +264,7 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
       final user = await auth.signInWithEmail(context, email, password);
       if (user != null) {
         await PushNotificationService.setExternalUserId(user.id);
+        await PushNotificationService.requestPermission();
       }
       if (!mounted) return;
       context.go(AppRoutes.roleSelection);
@@ -267,7 +295,8 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 24),
-              Text(context.l10n.authLoginTitle, style: context.textStyles.headlineLarge),
+              Text(context.l10n.authLoginTitle,
+                  style: context.textStyles.headlineLarge),
               const SizedBox(height: 8),
               Text(context.l10n.authLoginSubtitle,
                   style: context.textStyles.bodyLarge
@@ -333,7 +362,9 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(_isLoading ? context.l10n.authLoggingIn : context.l10n.authLoginButton),
+                      Text(_isLoading
+                          ? context.l10n.authLoggingIn
+                          : context.l10n.authLoginButton),
                       const SizedBox(width: 8),
                       Icon(_isLoading ? Icons.hourglass_top : Icons.login),
                     ],
@@ -491,6 +522,7 @@ class _PhoneLoginBodyState extends State<_PhoneLoginBody> {
           .verifyPhoneOtp(phoneE164: phone, code: code);
       if (user != null) {
         await PushNotificationService.setExternalUserId(user.id);
+        await PushNotificationService.requestPermission();
       }
       if (!mounted) return;
       context.go(AppRoutes.roleSelection);
@@ -548,7 +580,9 @@ class _PhoneLoginBodyState extends State<_PhoneLoginBody> {
               child: ElevatedButton.icon(
                 onPressed: _sending ? null : _sendCode,
                 icon: Icon(_sending ? Icons.hourglass_top : Icons.sms_outlined),
-                label: Text(_sending ? context.l10n.authSendingCode : context.l10n.authSendCodeButton),
+                label: Text(_sending
+                    ? context.l10n.authSendingCode
+                    : context.l10n.authSendCodeButton),
               ),
             ),
             if (_codeSent) ...[
@@ -574,7 +608,9 @@ class _PhoneLoginBodyState extends State<_PhoneLoginBody> {
                   icon: Icon(_verifying
                       ? Icons.hourglass_top
                       : Icons.verified_outlined),
-                  label: Text(_verifying ? context.l10n.authVerifying : context.l10n.authValidateButton),
+                  label: Text(_verifying
+                      ? context.l10n.authVerifying
+                      : context.l10n.authValidateButton),
                 ),
               ),
               const SizedBox(height: 8),
@@ -625,6 +661,7 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
       _handledOAuthRedirect = true;
       try {
         await PushNotificationService.setExternalUserId(user.id);
+        await PushNotificationService.requestPermission();
         await AppUserService().ensureProfileForAuthUser(user);
       } catch (e) {
         debugPrint('Post-OAuth signup setup failed: $e');
@@ -681,8 +718,7 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
         email.isEmpty ||
         phoneRaw.isEmpty ||
         password.isEmpty) {
-      AppSnackbars.warning(
-          context, context.l10n.authFillRequiredFields);
+      AppSnackbars.warning(context, context.l10n.authFillRequiredFields);
       return;
     }
     if (password != password2) {
@@ -691,11 +727,11 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
     }
     final phoneE164 = _toE164Cameroon(phoneRaw);
     if (!_cmPhoneRegex.hasMatch(phoneE164)) {
-      AppSnackbars.warning(
-          context, context.l10n.errorInvalidPhone);
+      AppSnackbars.warning(context, context.l10n.errorInvalidPhone);
       return;
     }
-    final preferredLanguage = context.read<LocaleProvider>().locale.languageCode;
+    final preferredLanguage =
+        context.read<LocaleProvider>().locale.languageCode;
 
     setState(() => _isLoading = true);
     try {
@@ -710,12 +746,14 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
       // confirms their email and actually logs in.
       if (Supabase.instance.client.auth.currentSession == null) {
         if (!mounted) return;
-        AppSnackbars.success(context, context.l10n.authAccountCreatedCheckEmail);
+        AppSnackbars.success(
+            context, context.l10n.authAccountCreatedCheckEmail);
         context.go(AppRoutes.login);
         return;
       }
 
       await PushNotificationService.setExternalUserId(user.id);
+      await PushNotificationService.requestPermission();
 
       final userService = AppUserService();
       await userService.upsertProfile(
@@ -787,15 +825,15 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
               _buildLabel(context.l10n.authFullNameLabel),
               TextField(
                   controller: _fullNameCtrl,
-                  decoration:
-                      _inputDeco(Icons.person_outline, context.l10n.authFullNameHint)),
+                  decoration: _inputDeco(
+                      Icons.person_outline, context.l10n.authFullNameHint)),
               const SizedBox(height: 16),
               _buildLabel(context.l10n.authEmailAddressLabel),
               TextField(
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
-                  decoration:
-                      _inputDeco(Icons.email_outlined, context.l10n.authEmailHint)),
+                  decoration: _inputDeco(
+                      Icons.email_outlined, context.l10n.authEmailHint)),
               const SizedBox(height: 16),
               _buildLabel(context.l10n.authPhoneNumberLabel),
               TextField(
@@ -831,8 +869,8 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
               const SizedBox(height: 16),
               _buildLabel(context.l10n.authCityLabel),
               DropdownButtonFormField<String>(
-                decoration: _inputDeco(
-                    Icons.location_city_outlined, context.l10n.authChooseCityHint),
+                decoration: _inputDeco(Icons.location_city_outlined,
+                    context.l10n.authChooseCityHint),
                 items: const [
                   DropdownMenuItem(value: 'Douala', child: Text('Douala')),
                   DropdownMenuItem(value: 'Yaoundé', child: Text('Yaoundé')),
@@ -899,7 +937,9 @@ class _SignupScreenBodyState extends State<_SignupScreenBody> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _submit,
-                  child: Text(_isLoading ? context.l10n.authCreatingAccount : context.l10n.authSignUpLink),
+                  child: Text(_isLoading
+                      ? context.l10n.authCreatingAccount
+                      : context.l10n.authSignUpLink),
                 ),
               ),
               const SizedBox(height: 16),
@@ -1066,8 +1106,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       final profile = await AppUserService().getCurrentProfile();
       if (profile?.role != 'admin') {
         if (!context.mounted) return;
-        AppSnackbars.warning(
-            context, context.l10n.authAccessDeniedNotAdmin);
+        AppSnackbars.warning(context, context.l10n.authAccessDeniedNotAdmin);
         return;
       }
       if (context.mounted) context.go(AppRoutes.adminDashboard);
@@ -1097,7 +1136,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       appBar: AppBar(
         leading: IconButton(
             icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
-        title: Text(context.l10n.authAppBarTitle, style: const TextStyle(fontSize: 14)),
+        title: Text(context.l10n.authAppBarTitle,
+            style: const TextStyle(fontSize: 14)),
         actions: const [_LanguageToggle()],
       ),
       body: SafeArea(
@@ -1116,22 +1156,23 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
               final profile = snapshot.data;
               if (profile != null && profile.isRoleLocked) {
                 return _RoleLockedView(
-                    profile: profile, onOpenAdmin: () => _openAdminIfAllowed(context));
+                    profile: profile,
+                    onOpenAdmin: () => _openAdminIfAllowed(context));
               }
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const SizedBox(height: 16),
-                  Text(context.l10n.authWelcomeTitle, style: context.textStyles.headlineLarge),
+                  Text(context.l10n.authWelcomeTitle,
+                      style: context.textStyles.headlineLarge),
                   const SizedBox(height: 8),
                   Text(context.l10n.authRoleQuestion,
                       style: context.textStyles.bodyLarge?.copyWith(
                           color: LightModeColors.lightOnSurfaceVariant)),
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                        context.l10n.authRoleChoiceFinalNotice,
+                    child: Text(context.l10n.authRoleChoiceFinalNotice,
                         textAlign: TextAlign.center,
                         style: context.textStyles.bodySmall?.copyWith(
                             color: LightModeColors.lightOnSurfaceVariant)),
@@ -1205,8 +1246,7 @@ class _RoleLockedView extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
         const SizedBox(height: 16),
-        Text(
-            context.l10n.authRoleLockedSubtitle,
+        Text(context.l10n.authRoleLockedSubtitle,
             textAlign: TextAlign.center,
             style: context.textStyles.bodyMedium
                 ?.copyWith(color: LightModeColors.lightOnSurfaceVariant)),

@@ -1,0 +1,17 @@
+.git/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+android/.gradle/
+android/app/build/
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+web/build/
+docs/
+env/*.json
+!env/*.json.example
+.idea/
+.vscode/
+*.log

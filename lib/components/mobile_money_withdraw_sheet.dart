@@ -3,13 +3,17 @@ import 'package:go_router/go_router.dart';
 
 import 'package:cleancity/components/app_error_handler.dart';
 import 'package:cleancity/components/app_snackbars.dart';
+import 'package:cleancity/services/mobile_money_simulator_service.dart';
 import 'package:cleancity/services/payout_request_service.dart';
 import 'package:cleancity/theme.dart';
 
 /// Bottom-sheet used to request a Mobile Money withdrawal.
 ///
-/// This does not perform the real Mobile Money transfer; it creates a row in
-/// `payout_requests` that an admin can later validate/pay.
+/// Real MTN/Orange Money merchant API access requires a lengthy
+/// administrative approval process, so this goes through a simulated
+/// gateway instead: it creates a row in `payout_requests`, then immediately
+/// "processes" it (simulated delay + generated reference, occasionally
+/// failing like a real operator would) and resolves it right away.
 class MobileMoneyWithdrawSheet extends StatefulWidget {
   const MobileMoneyWithdrawSheet({super.key, required this.onSuccess});
 
@@ -31,6 +35,20 @@ class _MobileMoneyWithdrawSheetState extends State<MobileMoneyWithdrawSheet> {
 
   String _provider = 'Orange Money';
   bool _busy = false;
+  bool _processing = false;
+
+  String _failureReasonLabel(BuildContext context, String? code) {
+    switch (code) {
+      case 'insufficient_balance':
+        return context.l10n.mobileMoneyFailureInsufficientBalance;
+      case 'timeout':
+        return context.l10n.mobileMoneyFailureTimeout;
+      case 'incorrect_pin':
+        return context.l10n.mobileMoneyFailureIncorrectPin;
+      default:
+        return context.l10n.mobileMoneyFailureNetworkError;
+    }
+  }
 
   String _normalizeCameroonPhone(String raw) {
     var s = raw.trim();
@@ -64,11 +82,26 @@ class _MobileMoneyWithdrawSheetState extends State<MobileMoneyWithdrawSheet> {
     final amount = int.tryParse(_amountCtrl.text.trim()) ?? 0;
     setState(() => _busy = true);
     try {
-      await PayoutRequestService().create(provider: _provider, phone: phone, amountXaf: amount);
+      final request = await PayoutRequestService().create(provider: _provider, phone: phone, amountXaf: amount);
+      if (!mounted) return;
+      setState(() => _processing = true);
+
+      final result = await MobileMoneySimulatorService().process(provider: _provider);
+      await PayoutRequestService().simulateCompletion(
+        id: request.id,
+        success: result.success,
+        reference: result.reference,
+        failureReasonCode: result.failureReasonCode,
+      );
+
       if (!mounted) return;
       widget.onSuccess();
       context.pop();
-      AppSnackbars.success(context, context.l10n.payoutRequestSent);
+      if (result.success) {
+        AppSnackbars.success(context, context.l10n.payoutSimulatedSuccess(result.reference));
+      } else {
+        AppSnackbars.error(context, _failureReasonLabel(context, result.failureReasonCode));
+      }
     } catch (e) {
       if (!mounted) return;
       final raw = e.toString().toLowerCase();
@@ -77,7 +110,10 @@ class _MobileMoneyWithdrawSheetState extends State<MobileMoneyWithdrawSheet> {
           : AppErrorHandler.toUserMessage(context, e);
       AppSnackbars.error(context, msg);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() {
+        _busy = false;
+        _processing = false;
+      });
     }
   }
 
@@ -135,7 +171,7 @@ class _MobileMoneyWithdrawSheetState extends State<MobileMoneyWithdrawSheet> {
                   child: FilledButton.icon(
                     onPressed: _busy ? null : _submit,
                     icon: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send_rounded, color: LightModeColors.lightOnPrimary),
-                    label: Text(context.l10n.payoutSubmitButton, style: context.textStyles.titleSmall?.copyWith(color: LightModeColors.lightOnPrimary, fontWeight: FontWeight.bold)),
+                    label: Text(_processing ? context.l10n.mobileMoneyProcessing : context.l10n.payoutSubmitButton, style: context.textStyles.titleSmall?.copyWith(color: LightModeColors.lightOnPrimary, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],

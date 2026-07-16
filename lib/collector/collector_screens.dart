@@ -9,6 +9,7 @@ import 'package:cleancity/components/cleancity_map_view.dart';
 import 'package:cleancity/components/mobile_money_withdraw_sheet.dart';
 import 'package:cleancity/components/center_picker_sheet.dart';
 import 'package:cleancity/components/notification_bell_button.dart';
+import 'package:cleancity/components/report_dispute_sheet.dart';
 import 'package:cleancity/components/user_profile_tab.dart';
 import 'package:cleancity/chat/chat_screens.dart';
 import 'package:cleancity/components/app_error_handler.dart';
@@ -1580,6 +1581,17 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                     }
                   },
           ),
+          if (requestId != null)
+            IconButton(
+              tooltip: context.l10n.disputeReportButton,
+              icon: const Icon(Icons.flag_outlined),
+              onPressed: () => showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                showDragHandle: true,
+                builder: (context) => ReportDisputeSheet(requestId: requestId),
+              ),
+            ),
         ],
       ),
       body: FutureBuilder(

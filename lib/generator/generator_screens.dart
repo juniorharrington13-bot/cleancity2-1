@@ -9,12 +9,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cleancity/components/app_error_handler.dart';
 import 'package:cleancity/components/app_snackbars.dart';
 import 'package:cleancity/components/cleancity_map_view.dart';
+import 'package:cleancity/components/mobile_money_withdraw_sheet.dart';
 import 'package:cleancity/components/notification_bell_button.dart';
+import 'package:cleancity/components/report_dispute_sheet.dart';
 import 'package:cleancity/components/user_profile_tab.dart';
 import 'package:cleancity/chat/chat_screens.dart';
 import 'package:cleancity/models/waste_request.dart';
 import 'package:cleancity/nav.dart';
 import 'package:cleancity/services/app_user_service.dart';
+import 'package:cleancity/services/eco_points_service.dart';
 import 'package:cleancity/services/waste_request_service.dart';
 import 'package:cleancity/services/media_upload_service.dart';
 import 'package:cleancity/services/maps_service.dart';
@@ -119,8 +122,36 @@ class _GeneratorDashboardState extends State<GeneratorDashboard> {
   }
 }
 
-class _GeneratorHomeTab extends StatelessWidget {
+class _GeneratorHomeTab extends StatefulWidget {
   const _GeneratorHomeTab();
+
+  @override
+  State<_GeneratorHomeTab> createState() => _GeneratorHomeTabState();
+}
+
+class _GeneratorHomeTabState extends State<_GeneratorHomeTab> {
+  late Future<GeneratorEcoBalance> _ecoFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _ecoFuture = EcoPointsService().getBalanceForCurrentGenerator();
+  }
+
+  void _reloadEcoBalance() {
+    setState(() {
+      _ecoFuture = EcoPointsService().getBalanceForCurrentGenerator();
+    });
+  }
+
+  Future<void> _openWithdrawSheet() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => MobileMoneyWithdrawSheet(onSuccess: _reloadEcoBalance),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -135,36 +166,61 @@ class _GeneratorHomeTab extends StatelessWidget {
               color: LightModeColors.lightPrimary,
               borderRadius: BorderRadius.circular(AppRadius.lg),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: FutureBuilder<GeneratorEcoBalance>(
+              future: _ecoFuture,
+              builder: (context, snap) {
+                final balance = snap.data;
+                final points = balance?.totalPoints ?? 0;
+                final availableXaf = balance?.availableXaf ?? 0;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(context.l10n.generatorEcoPointsTitle,
-                        style: context.textStyles.bodyMedium?.copyWith(
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(context.l10n.generatorEcoPointsTitle,
+                            style: context.textStyles.bodyMedium?.copyWith(
+                                color: LightModeColors.lightOnPrimary
+                                    .withValues(alpha: 0.8))),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
                             color: LightModeColors.lightOnPrimary
-                                .withValues(alpha: 0.8))),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: LightModeColors.lightOnPrimary
-                            .withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                                .withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                          ),
+                          child: Text('+$points pts',
+                              style: context.textStyles.labelSmall?.copyWith(
+                                  color: LightModeColors.lightOnPrimary)),
+                        )
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                        availableXaf > 0
+                            ? '$availableXaf XAF'
+                            : '—',
+                        style: context.textStyles.displayMedium?.copyWith(
+                            color: LightModeColors.lightOnPrimary,
+                            fontWeight: FontWeight.bold)),
+                    if (availableXaf > 0) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: _openWithdrawSheet,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: LightModeColors.lightOnPrimary,
+                            side: BorderSide(color: LightModeColors.lightOnPrimary.withValues(alpha: 0.6)),
+                          ),
+                          child: Text(context.l10n.generatorRequestWithdrawalButton),
+                        ),
                       ),
-                      child: Text('+0 pts',
-                          style: context.textStyles.labelSmall?.copyWith(
-                              color: LightModeColors.lightOnPrimary)),
-                    )
+                    ],
                   ],
-                ),
-                const SizedBox(height: 8),
-                Text('—',
-                    style: context.textStyles.displayMedium?.copyWith(
-                        color: LightModeColors.lightOnPrimary,
-                        fontWeight: FontWeight.bold)),
-              ],
+                );
+              },
             ),
           ),
           const SizedBox(height: 24),
@@ -894,9 +950,37 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _RequestListTile extends StatelessWidget {
+class _RequestListTile extends StatefulWidget {
   const _RequestListTile({required this.request});
   final WasteRequest request;
+
+  @override
+  State<_RequestListTile> createState() => _RequestListTileState();
+}
+
+class _RequestListTileState extends State<_RequestListTile> {
+  late bool _confirmed = widget.request.pickupGeneratorConfirmedAt != null;
+  bool _confirming = false;
+
+  WasteRequest get request => widget.request;
+
+  Future<void> _confirmPickup() async {
+    if (_confirming) return;
+    setState(() => _confirming = true);
+    try {
+      await WasteRequestService().confirmPickupAsGenerator(request.id);
+      if (!mounted) return;
+      setState(() {
+        _confirmed = true;
+      });
+      AppSnackbars.success(context, context.l10n.generatorConfirmPickupSuccess);
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
+    } finally {
+      if (mounted) setState(() => _confirming = false);
+    }
+  }
 
   String _formatSchedule() {
     final d = request.scheduledAt;
@@ -979,14 +1063,38 @@ class _RequestListTile extends StatelessWidget {
                 ],
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(AppRadius.sm)),
-              child: Text(request.status.toUpperCase(),
-                  style: context.textStyles.labelSmall
-                      ?.copyWith(color: color, fontWeight: FontWeight.bold)),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(AppRadius.sm)),
+                  child: Text(request.status.toUpperCase(),
+                      style: context.textStyles.labelSmall
+                          ?.copyWith(color: color, fontWeight: FontWeight.bold)),
+                ),
+                if (request.status == 'collected') ...[
+                  const SizedBox(height: 6),
+                  _confirmed
+                      ? Text(context.l10n.generatorConfirmPickupConfirmedLabel,
+                          style: context.textStyles.labelSmall
+                              ?.copyWith(color: LightModeColors.lightPrimary))
+                      : TextButton(
+                          onPressed: _confirming ? null : _confirmPickup,
+                          style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                              minimumSize: const Size(0, 28)),
+                          child: _confirming
+                              ? const SizedBox(
+                                  width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                              : Text(context.l10n.generatorConfirmPickupButton,
+                                  style: context.textStyles.labelSmall
+                                      ?.copyWith(color: LightModeColors.lightPrimary, fontWeight: FontWeight.bold)),
+                        ),
+                ],
+              ],
             ),
           ],
         ),
@@ -1048,7 +1156,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
   static const LatLng _createRequestDoualaFallback = LatLng(4.0511, 9.7679);
 
   double _weight = 15;
-  String _selectedType = 'plastic';
+  final Set<String> _selectedTypes = {'plastic'};
 
   DateTime? _scheduledDate;
   String? _timeSlot;
@@ -1104,6 +1212,10 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
 
   Future<void> _publish() async {
     if (_publishing) return;
+    if (_selectedTypes.isEmpty) {
+      AppSnackbars.warning(context, context.l10n.generatorWasteTypeRequiredNotice);
+      return;
+    }
     if (_latitude == null || _longitude == null) {
       AppSnackbars.warning(
         context,
@@ -1117,7 +1229,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
           ? null
           : _combineDateAndSlot(_scheduledDate!, _timeSlot);
       final req = await WasteRequestService().create(
-        wasteType: _selectedType,
+        wasteTypes: _selectedTypes.toList(),
         quantityEstimateKg: _weight,
         notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
         scheduledAt: scheduledAt,
@@ -1272,7 +1384,8 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                   child: Slider(
                     value: _weight,
                     min: 1,
-                    max: 100,
+                    max: 5000,
+                    divisions: 500,
                     activeColor: LightModeColors.lightPrimary,
                     onChanged: (v) => setState(() => _weight = v),
                   ),
@@ -1538,8 +1651,8 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
   }
 
   Widget _buildWasteType(String code, String label, IconData icon) {
-    final isSelected = _selectedType == code;
-    return ChoiceChip(
+    final isSelected = _selectedTypes.contains(code);
+    return FilterChip(
       label: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1551,7 +1664,14 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
         ],
       ),
       selected: isSelected,
-      onSelected: (v) => setState(() => _selectedType = code),
+      onSelected: (v) => setState(() {
+        if (v) {
+          _selectedTypes.add(code);
+        } else if (_selectedTypes.length > 1) {
+          // Keep at least one type selected at all times.
+          _selectedTypes.remove(code);
+        }
+      }),
       selectedColor: LightModeColors.lightPrimaryContainer,
       backgroundColor: LightModeColors.lightSurface,
       shape: RoundedRectangleBorder(
@@ -1734,6 +1854,17 @@ class _RequestDetailsScreenState extends State<RequestDetailsScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.add_a_photo),
           ),
+          if (effectiveId != null)
+            IconButton(
+              tooltip: context.l10n.disputeReportButton,
+              onPressed: () => showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                showDragHandle: true,
+                builder: (context) => ReportDisputeSheet(requestId: effectiveId),
+              ),
+              icon: const Icon(Icons.flag_outlined),
+            ),
         ],
       ),
       body: FutureBuilder(

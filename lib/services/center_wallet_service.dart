@@ -11,6 +11,7 @@ class CenterWalletTransaction {
     required this.type,
     required this.amountXaf,
     required this.createdAt,
+    this.reference,
   });
 
   final String id;
@@ -19,6 +20,11 @@ class CenterWalletTransaction {
   /// Signed: positive = credit, negative = debit.
   final double amountXaf;
   final DateTime? createdAt;
+
+  /// Real Mobile Money transaction reference, for `topup` rows (joined from
+  /// `wallet_topups.reference`). Null for `payout_debit`/`adjustment` rows,
+  /// which have no external reference.
+  final String? reference;
 }
 
 /// Manages a center's wallet: top-up requests (funded by the center via
@@ -66,17 +72,22 @@ class CenterWalletService {
     try {
       final rows = await _client
           .from('center_wallet_transactions')
-          .select('id, type, amount_xaf, created_at')
+          .select('id, type, amount_xaf, created_at, wallet_topups(reference)')
           .eq('center_id', uid)
           .order('created_at', ascending: false)
           .limit(limit);
       return (rows as List).whereType<Map>().map((raw) {
         final row = Map<String, dynamic>.from(raw);
+        final topup = row['wallet_topups'];
+        final topupMap = topup is Map
+            ? Map<String, dynamic>.from(topup)
+            : (topup is List && topup.isNotEmpty && topup.first is Map) ? Map<String, dynamic>.from(topup.first as Map) : null;
         return CenterWalletTransaction(
           id: (row['id'] ?? '').toString(),
           type: (row['type'] ?? '').toString(),
           amountXaf: _asDouble(row['amount_xaf']),
           createdAt: DateTime.tryParse('${row['created_at']}'),
+          reference: topupMap?['reference'] as String?,
         );
       }).toList(growable: false);
     } on PostgrestException catch (e) {
@@ -155,6 +166,31 @@ class CenterWalletService {
       rethrow;
     } catch (e) {
       debugPrint('CenterWalletService.requestTopup failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Resolves a pending top-up with the outcome of a simulated Mobile Money
+  /// gateway call. Only the requesting center may call this (enforced
+  /// server-side by `simulate_mobile_money_topup`).
+  Future<void> simulateTopupCompletion({
+    required String id,
+    required bool success,
+    required String reference,
+    String? failureReasonCode,
+  }) async {
+    try {
+      await _client.rpc('simulate_mobile_money_topup', params: {
+        'p_topup_id': id,
+        'p_success': success,
+        'p_reference': reference,
+        'p_failure_reason': failureReasonCode,
+      });
+    } on PostgrestException catch (e) {
+      debugPrint('CenterWalletService.simulateTopupCompletion failed: ${e.message}');
+      rethrow;
+    } catch (e) {
+      debugPrint('CenterWalletService.simulateTopupCompletion failed: $e');
       rethrow;
     }
   }
