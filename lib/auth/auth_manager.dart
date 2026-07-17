@@ -231,4 +231,29 @@ class SupabaseAuthManager extends AuthManager with EmailSignInManager, GoogleSig
       rethrow;
     }
   }
+
+  /// Verifies the 6-digit code sent by [resetPassword] and signs the user in
+  /// (recovery OTPs authenticate the user, same as a clicked reset link would).
+  /// Requires the Supabase "Reset Password" email template to include
+  /// `{{ .Token }}` so the user actually sees a code to type.
+  Future<AuthUser?> verifyRecoveryOtp({required String email, required String code}) async {
+    try {
+      final res = await _client.auth.verifyOTP(email: email, token: code, type: OtpType.recovery);
+      return res.user;
+    } catch (e) {
+      debugPrint('Supabase verifyRecoveryOtp failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Sets a new password for the currently authenticated session. Call this
+  /// right after [verifyRecoveryOtp] succeeds.
+  Future<void> updatePasswordAfterRecovery({required String newPassword}) async {
+    try {
+      await _client.auth.updateUser(UserAttributes(password: newPassword));
+    } catch (e) {
+      debugPrint('Supabase updatePasswordAfterRecovery failed: $e');
+      rethrow;
+    }
+  }
 }

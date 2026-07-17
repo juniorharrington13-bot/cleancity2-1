@@ -17,6 +17,7 @@ class AppRoutes {
   static const String login = '/login';
   static const String signup = '/signup';
   static const String phoneLogin = '/login/phone';
+  static const String resetPassword = '/login/reset-password';
   static const String roleSelection = '/roles';
   
   static const String generatorDashboard = '/generator';
@@ -76,6 +77,10 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.phoneLogin,
         builder: (context, state) => const PhoneLoginScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.resetPassword,
+        builder: (context, state) => const ResetPasswordScreen(),
       ),
       GoRoute(
         path: AppRoutes.signup,

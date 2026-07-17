@@ -200,48 +200,8 @@ class _LoginScreenBodyState extends State<_LoginScreenBody> {
   StreamSubscription<AuthState>? _authSub;
   bool _handledOAuthRedirect = false;
 
-  Future<void> _forgotPassword() async {
-    final resetEmailCtrl = TextEditingController(text: _emailCtrl.text.trim());
-    final formKey = GlobalKey<FormState>();
-    final email = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(context.l10n.authForgotPasswordDialogTitle),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: resetEmailCtrl,
-            autofocus: true,
-            keyboardType: TextInputType.emailAddress,
-            decoration: InputDecoration(labelText: context.l10n.commonEmail),
-            validator: (v) => (v ?? '').trim().contains('@') ? null : context.l10n.authForgotPasswordEmailRequired,
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => dialogContext.pop(), child: Text(context.l10n.commonCancel)),
-          FilledButton(
-            onPressed: () {
-              if (formKey.currentState?.validate() ?? false) {
-                dialogContext.pop(resetEmailCtrl.text.trim());
-              }
-            },
-            child: Text(context.l10n.authForgotPasswordSendButton),
-          ),
-        ],
-      ),
-    );
-    if (email == null || email.isEmpty) return;
-    if (!mounted) return;
-
-    try {
-      await SupabaseAuthManager().resetPassword(email: email, context: context);
-      if (!mounted) return;
-      AppSnackbars.success(context, context.l10n.authForgotPasswordSuccess);
-    } catch (e) {
-      debugPrint('Forgot password failed: $e');
-      if (!mounted) return;
-      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
-    }
+  void _forgotPassword() {
+    context.push(AppRoutes.resetPassword);
   }
 
   @override
@@ -661,6 +621,179 @@ class _PhoneLoginBodyState extends State<_PhoneLoginBody> {
               TextButton(
                   onPressed: _sending ? null : _sendCode,
                   child: Text(context.l10n.authResendCode)),
+            ],
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+// --- RESET PASSWORD SCREEN (email code) ---
+class ResetPasswordScreen extends StatelessWidget {
+  const ResetPasswordScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) => const _ResetPasswordBody();
+}
+
+class _ResetPasswordBody extends StatefulWidget {
+  const _ResetPasswordBody();
+
+  @override
+  State<_ResetPasswordBody> createState() => _ResetPasswordBodyState();
+}
+
+class _ResetPasswordBodyState extends State<_ResetPasswordBody> {
+  final _emailCtrl = TextEditingController();
+  final _codeCtrl = TextEditingController();
+  final _newPasswordCtrl = TextEditingController();
+  bool _sending = false;
+  bool _verifying = false;
+  bool _codeSent = false;
+  bool _obscurePassword = true;
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _codeCtrl.dispose();
+    _newPasswordCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendCode() async {
+    final email = _emailCtrl.text.trim();
+    if (!email.contains('@')) {
+      AppSnackbars.warning(context, context.l10n.authForgotPasswordEmailRequired);
+      return;
+    }
+    setState(() => _sending = true);
+    try {
+      await SupabaseAuthManager().resetPassword(email: email, context: context);
+      if (!mounted) return;
+      setState(() => _codeSent = true);
+      AppSnackbars.success(context, context.l10n.authResetCodeSent);
+    } catch (e) {
+      debugPrint('Reset password send failed: $e');
+      if (!mounted) return;
+      AppSnackbars.error(context, AppErrorHandler.toUserMessage(context, e));
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _verifyAndSetPassword() async {
+    final email = _emailCtrl.text.trim();
+    final code = _codeCtrl.text.trim();
+    final newPassword = _newPasswordCtrl.text;
+    if (code.length < 4) {
+      AppSnackbars.warning(context, context.l10n.authEnterReceivedCode);
+      return;
+    }
+    if (newPassword.length < 6) {
+      AppSnackbars.warning(context, context.l10n.authPasswordTooShort);
+      return;
+    }
+    setState(() => _verifying = true);
+    try {
+      await SupabaseAuthManager().verifyRecoveryOtp(email: email, code: code);
+      await SupabaseAuthManager().updatePasswordAfterRecovery(newPassword: newPassword);
+      if (!mounted) return;
+      AppSnackbars.success(context, context.l10n.authPasswordResetSuccess);
+      context.go(AppRoutes.login);
+    } catch (e) {
+      debugPrint('Reset password verify failed: $e');
+      if (!mounted) return;
+      AppSnackbars.error(context, context.l10n.errorInvalidOrExpiredCode);
+    } finally {
+      if (mounted) setState(() => _verifying = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(AppRoutes.login);
+            }
+          },
+        ),
+        title: Text(context.l10n.authResetPasswordTitle),
+        actions: const [_LanguageToggle()],
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: AppSpacing.paddingLg,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const SizedBox(height: 16),
+            Text(context.l10n.commonEmail,
+                style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _emailCtrl,
+              enabled: !_codeSent,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                hintText: 'votre@email.cm',
+                prefixIcon: Icon(Icons.email_outlined, color: LightModeColors.lightOnSurfaceVariant),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _sending ? null : _sendCode,
+                icon: Icon(_sending ? Icons.hourglass_top : Icons.mail_outlined),
+                label: Text(_sending ? context.l10n.authSendingCode : context.l10n.authSendCodeButton),
+              ),
+            ),
+            if (_codeSent) ...[
+              const SizedBox(height: 24),
+              Text(context.l10n.authEmailCodeLabel,
+                  style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _codeCtrl,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  hintText: '123456',
+                  prefixIcon: Icon(Icons.lock_clock_outlined, color: LightModeColors.lightOnSurfaceVariant),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(context.l10n.authNewPasswordLabel,
+                  style: context.textStyles.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _newPasswordCtrl,
+                obscureText: _obscurePassword,
+                decoration: InputDecoration(
+                  hintText: '••••••••',
+                  prefixIcon: Icon(Icons.lock_outline, color: LightModeColors.lightOnSurfaceVariant),
+                  suffixIcon: IconButton(
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                        color: LightModeColors.lightOnSurfaceVariant),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _verifying ? null : _verifyAndSetPassword,
+                  icon: Icon(_verifying ? Icons.hourglass_top : Icons.verified_outlined),
+                  label: Text(_verifying ? context.l10n.authVerifying : context.l10n.authResetPasswordButton),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton(onPressed: _sending ? null : _sendCode, child: Text(context.l10n.authResendCode)),
             ],
           ]),
         ),
